@@ -78,7 +78,6 @@ where
     {
         #[derive(Serialize)]
         struct Response<'a, T> {
-            #[serde(skip_serializing_if = "<[_]>::is_empty")]
             data: &'a [T],
             total: usize,
             limit: usize,
