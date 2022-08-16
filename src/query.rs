@@ -41,7 +41,7 @@ pub async fn run(shutdown: Shutdown) -> Result<()> {
         )
         .layer(TraceLayer::new_for_http());
 
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 8080));
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 16686));
     info!("listening on http://{addr}");
 
     Server::bind(&addr)
