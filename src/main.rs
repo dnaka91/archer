@@ -1,22 +1,11 @@
-use std::net::{Ipv4Addr, SocketAddr};
-
 use anyhow::Result;
-use axum::{
-    extract::Path,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::{get, get_service},
-    Json, Router, Server,
-};
-use serde::Serialize;
+use tokio::task::JoinHandle;
 use tokio_shutdown::Shutdown;
-use tower_http::{
-    services::{ServeDir, ServeFile},
-    trace::TraceLayer,
-};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{filter::Targets, prelude::*};
 
+mod agent;
+mod collector;
 mod models;
 mod query;
 
@@ -33,9 +22,20 @@ async fn main() -> Result<()> {
         .init();
 
     let shutdown = Shutdown::new()?;
-    let (query_result,) = tokio::join!(query::run(shutdown));
 
-    query_result?;
+    tokio::try_join!(
+        flatten(tokio::spawn(agent::run(shutdown.clone()))),
+        flatten(tokio::spawn(collector::run(shutdown.clone()))),
+        flatten(tokio::spawn(query::run(shutdown))),
+    )?;
 
     Ok(())
+}
+
+async fn flatten<T>(handle: JoinHandle<Result<T>>) -> Result<T> {
+    match handle.await {
+        Ok(Ok(value)) => Ok(value),
+        Ok(Err(err)) => Err(err),
+        Err(err) => Err(err.into()),
+    }
 }

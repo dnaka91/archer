@@ -14,8 +14,7 @@ use tower_http::{
     services::{ServeDir, ServeFile},
     trace::TraceLayer,
 };
-use tracing::info;
-use tracing::instrument;
+use tracing::{info, instrument};
 
 #[instrument(name = "query", skip_all)]
 pub async fn run(shutdown: Shutdown) -> Result<()> {
