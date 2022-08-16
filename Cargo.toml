@@ -15,6 +15,7 @@ protogen = { path = "gen/protogen" }
 serde = { version = "1.0.143", features = ["derive"] }
 thriftgen = { path = "gen/thriftgen" }
 tokio = { version = "1.20.1", features = ["macros", "rt-multi-thread"] }
+tokio-shutdown = "0.1.2"
 tower-http = { version = "0.3.4", features = ["fs", "trace"] }
 tracing = "0.1.36"
 tracing-subscriber = "0.3.15"
