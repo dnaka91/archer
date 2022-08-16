@@ -1,0 +1,9 @@
+[package]
+name = "thriftgen"
+version = "0.1.0"
+authors = ["Dominik Nakamura <dnaka91@gmail.com>"]
+edition = "2021"
+license = "AGPL-3.0-only"
+
+[dependencies]
+thrift = "0.16.0"
