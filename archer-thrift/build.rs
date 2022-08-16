@@ -3,7 +3,7 @@ fn main() {
     std::process::Command::new("thrift")
         .arg("-out")
         .arg(out_dir)
-        .args(["--gen", "rs", "-r", "../../jaeger-idl/thrift/jaeger.thrift"])
+        .args(["--gen", "rs", "-r", "../jaeger-idl/thrift/jaeger.thrift"])
         .output()
         .unwrap();
 }

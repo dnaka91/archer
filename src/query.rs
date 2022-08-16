@@ -6,18 +6,21 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
     routing::{get, get_service},
-    Json, Router, Server,
+    Extension, Json, Router, Server,
 };
 use serde::Serialize;
 use tokio_shutdown::Shutdown;
+use tower::ServiceBuilder;
 use tower_http::{
     services::{ServeDir, ServeFile},
-    trace::TraceLayer,
+    ServiceBuilderExt,
 };
 use tracing::{info, instrument};
 
+use crate::storage::Database;
+
 #[instrument(name = "query", skip_all)]
-pub async fn run(shutdown: Shutdown) -> Result<()> {
+pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
     let app = Router::new()
         .route("/api/services", get(services))
         .route("/api/services/:service/operations", get(operations))
@@ -38,7 +41,11 @@ pub async fn run(shutdown: Shutdown) -> Result<()> {
             )
             .handle_error(handle_error),
         )
-        .layer(TraceLayer::new_for_http());
+        .layer(
+            ServiceBuilder::new()
+                .trace_for_http()
+                .layer(Extension(database)),
+        );
 
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 16686));
     info!("listening on http://{addr}");
@@ -53,6 +60,7 @@ pub async fn run(shutdown: Shutdown) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 enum ApiResponse<T> {
     Data(Vec<T>),
     Errors(Vec<ApiError>),

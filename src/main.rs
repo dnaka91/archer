@@ -8,6 +8,7 @@ mod agent;
 mod collector;
 mod models;
 mod query;
+mod storage;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,12 +22,16 @@ async fn main() -> Result<()> {
         )
         .init();
 
+    let database = storage::init().await?;
     let shutdown = Shutdown::new()?;
 
     tokio::try_join!(
         flatten(tokio::spawn(agent::run(shutdown.clone()))),
-        flatten(tokio::spawn(collector::run(shutdown.clone()))),
-        flatten(tokio::spawn(query::run(shutdown))),
+        flatten(tokio::spawn(collector::run(
+            shutdown.clone(),
+            database.clone()
+        ))),
+        flatten(tokio::spawn(query::run(shutdown, database))),
     )?;
 
     Ok(())

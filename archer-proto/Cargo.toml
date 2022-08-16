@@ -1,5 +1,5 @@
 [package]
-name = "protogen"
+name = "archer-proto"
 version = "0.1.0"
 authors = ["Dominik Nakamura <dnaka91@gmail.com>"]
 edition = "2021"

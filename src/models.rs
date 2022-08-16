@@ -1,4 +1,6 @@
 pub mod http {
+    #![allow(dead_code)]
+
     use std::collections::HashMap;
 
     use serde::Serialize;

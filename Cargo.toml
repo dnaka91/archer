@@ -1,5 +1,5 @@
 [workspace]
-members = ["gen/protogen", "gen/thriftgen"]
+members = ["archer-proto", "archer-thrift"]
 
 [package]
 name = "archer"
@@ -10,12 +10,17 @@ license = "AGPL-3.0-only"
 
 [dependencies]
 anyhow = "1.0.61"
+archer-proto = { path = "archer-proto" }
+archer-thrift = { path = "archer-thrift" }
 axum = { version = "0.5.15", features = ["http2"] }
-protogen = { path = "gen/protogen" }
+deadpool = "0.9.5"
+deadpool-sqlite = "0.5.0"
+deadpool-sync = "0.1.0"
+rusqlite = { version = "0.28.0", features = ["bundled"] }
 serde = { version = "1.0.143", features = ["derive"] }
-thriftgen = { path = "gen/thriftgen" }
 tokio = { version = "1.20.1", features = ["macros", "rt-multi-thread"] }
 tokio-shutdown = "0.1.2"
+tower = "0.4.13"
 tower-http = { version = "0.3.4", features = ["fs", "trace"] }
 tracing = "0.1.36"
 tracing-subscriber = "0.3.15"
