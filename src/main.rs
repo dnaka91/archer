@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
     let shutdown = Shutdown::new()?;
 
     tokio::try_join!(
-        flatten(tokio::spawn(agent::run(shutdown.clone()))),
+        flatten(tokio::spawn(agent::run(shutdown.clone(), database.clone()))),
         flatten(tokio::spawn(collector::run(
             shutdown.clone(),
             database.clone()
