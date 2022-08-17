@@ -1,4 +1,7 @@
-use std::{hash::Hash, path::PathBuf};
+use std::{
+    hash::Hash,
+    path::{Path, PathBuf},
+};
 
 use quote::quote;
 use regex::{Captures, Regex};
@@ -120,5 +123,5 @@ fn create_etag(data: &[u8]) -> String {
     let mut hasher = SipHasher13::new();
     data.hash(&mut hasher);
 
-    format!("W/\"{:032x}\"", hasher.finish128().as_u128())
+    format!("\"{:032x}\"", hasher.finish128().as_u128())
 }
