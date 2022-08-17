@@ -8,6 +8,7 @@ use walkdir::{DirEntry, WalkDir};
 fn main() {
     let git = Regex::new(r"https://github.com/jaegertracing/jaeger-ui").unwrap();
     let jaeger = Regex::new(r"(?i)jaeger").unwrap();
+    let sourcemap = Regex::new(r"\n/(\*|/)# sourceMappingURL=.+\.map( \*/)?").unwrap();
 
     let root = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
     let root = root.join("jaeger-ui/packages/jaeger-ui/build");
@@ -39,6 +40,7 @@ fn main() {
                     }
                     .to_owned()
                 });
+                let buf = sourcemap.replace_all(&buf, "");
 
                 let path = out_assets.join(entry.path().strip_prefix(&root).unwrap());
 
