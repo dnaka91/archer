@@ -25,7 +25,7 @@ fn main() {
         .filter_entry(|e| !is_hidden(e))
         .filter_map(|entry| {
             let entry = entry.unwrap();
-            if entry.file_type().is_dir() || is_ignored(&entry) {
+            if entry.file_type().is_dir() || is_ignored(&entry, &root) {
                 return None;
             }
 
@@ -110,13 +110,15 @@ fn is_textish(entry: &DirEntry) -> bool {
     entry.file_type().is_file() && ["js", "css", "html"].contains(&ext)
 }
 
-fn is_ignored(entry: &DirEntry) -> bool {
-    entry
+fn is_ignored(entry: &DirEntry, root: &Path) -> bool {
+    let ext = entry
         .path()
         .extension()
         .and_then(|ext| ext.to_str())
-        .unwrap_or_default()
-        == "map"
+        .unwrap_or_default();
+    let path = entry.path().strip_prefix(root).unwrap().to_str().unwrap();
+
+    ext == "map" || (path != "index.html" && path != "favicon.ico" && !path.starts_with("static/"))
 }
 
 fn create_etag(data: &[u8]) -> String {
