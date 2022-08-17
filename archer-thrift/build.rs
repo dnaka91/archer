@@ -9,13 +9,20 @@ fn main() {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
 
-    std::process::Command::new(thrift)
+    let output = std::process::Command::new(thrift)
         .arg("-out")
         .arg(&out_dir)
         .args(["--gen", "rs", "-r"])
-        .arg(root.join("jaeger-idl/thrift/agent.thrift"))
+        .arg(root.join("../jaeger-idl/thrift/agent.thrift"))
         .output()
         .unwrap();
+
+    if !output.status.success() {
+        panic!(
+            "failed running `thrift`: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 
     for entry in WalkDir::new(&out_dir) {
         let entry = entry.unwrap();
