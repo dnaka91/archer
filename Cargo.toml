@@ -16,6 +16,8 @@ axum = { version = "0.5.15", features = ["headers", "http2"] }
 deadpool = "0.9.5"
 deadpool-sqlite = "0.5.0"
 deadpool-sync = "0.1.0"
+hex = "0.4.3"
+itertools = "0.10.3"
 phf = { version = "0.11.1", features = ["macros"] }
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 serde = { version = "1.0.143", features = ["derive"] }
@@ -25,6 +27,7 @@ tower = "0.4.13"
 tower-http = { version = "0.3.4", features = ["trace"] }
 tracing = "0.1.36"
 tracing-subscriber = "0.3.15"
+zstd = "0.11.2"
 
 [profile.release]
 lto = true

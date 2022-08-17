@@ -1,8 +1,13 @@
-use std::net::{Ipv4Addr, SocketAddr};
+use std::{
+    collections::HashMap,
+    net::{Ipv4Addr, SocketAddr},
+    time::UNIX_EPOCH,
+};
 
 use anyhow::Result;
+use archer_proto::jaeger::api_v2::SpanRefType;
 use axum::{
-    extract::Path,
+    extract::{Path, Query},
     headers::IfNoneMatch,
     http::{
         header::{CACHE_CONTROL, CONTENT_TYPE, ETAG, LAST_MODIFIED},
@@ -12,13 +17,14 @@ use axum::{
     routing::get,
     Extension, Json, Router, Server, TypedHeader,
 };
-use serde::Serialize;
+use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 use tokio_shutdown::Shutdown;
 use tower::ServiceBuilder;
 use tower_http::ServiceBuilderExt;
 use tracing::{info, instrument};
 
-use crate::storage::Database;
+use crate::{models::http, storage::Database};
 
 #[instrument(name = "query", skip_all)]
 pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
@@ -111,16 +117,97 @@ struct ApiError {
 #[serde(transparent)]
 struct TraceId(String);
 
-async fn services() -> impl IntoResponse {
-    Json(ApiResponse::Data(vec!["service-1", "service-2"]))
+async fn services(Extension(db): Extension<Database>) -> impl IntoResponse {
+    Json(ApiResponse::Data(db.list_services().await.unwrap()))
 }
 
-async fn operations(Path(_service): Path<String>) -> impl IntoResponse {
-    Json(ApiResponse::Data(vec!["operation-1", "operation-2"]))
+async fn operations(
+    Path(service): Path<String>,
+    Extension(db): Extension<Database>,
+) -> impl IntoResponse {
+    Json(ApiResponse::Data(
+        db.list_operations(service).await.unwrap(),
+    ))
 }
 
-async fn traces() -> impl IntoResponse {
-    Json(ApiResponse::Data(Vec::<()>::new()))
+#[derive(Deserialize)]
+struct TracesParams {
+    service: String,
+    operation: Option<String>,
+}
+
+async fn traces(
+    Query(params): Query<TracesParams>,
+    Extension(db): Extension<Database>,
+) -> impl IntoResponse {
+    let spans = db
+        .list_spans(params.service.clone(), params.operation)
+        .await
+        .unwrap();
+
+    let traces = spans
+        .into_iter()
+        .group_by(|span| span.trace_id.clone())
+        .into_iter()
+        .map(|(trace_id, spans)| {
+            let mut spans = spans.peekable();
+            http::Trace {
+                trace_id: http::TraceId(
+                    spans
+                        .peek()
+                        .map(|s| hex::encode(&s.trace_id))
+                        .unwrap_or_default(),
+                ),
+                spans: spans
+                    .into_iter()
+                    .map(|span| http::Span {
+                        trace_id: http::TraceId(hex::encode(span.trace_id)),
+                        span_id: http::SpanId(hex::encode(span.span_id)),
+                        parent_span_id: None,
+                        flags: span.flags,
+                        operation_name: span.operation_name,
+                        references: span
+                            .references
+                            .into_iter()
+                            .map(|r| http::Reference {
+                                ref_type: match r.ref_type() {
+                                    SpanRefType::ChildOf => http::ReferenceType::ChildOf,
+                                    SpanRefType::FollowsFrom => http::ReferenceType::FollowsFrom,
+                                },
+                                trace_id: http::TraceId(hex::encode(r.trace_id)),
+                                span_id: http::SpanId(hex::encode(r.span_id)),
+                            })
+                            .collect(),
+                        start_time: std::time::SystemTime::try_from(span.start_time.unwrap())
+                            .unwrap()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_micros() as u64,
+                        duration: std::time::Duration::try_from(span.duration.unwrap())
+                            .unwrap()
+                            .as_micros() as u64,
+                        tags: vec![],
+                        logs: vec![],
+                        process_id: http::ProcessId("test".to_owned()),
+                        process: None,
+                        warnings: vec![],
+                    })
+                    .collect(),
+                processes: [(
+                    "test".to_owned(),
+                    http::Process {
+                        service_name: params.service.clone(),
+                        tags: vec![],
+                    },
+                )]
+                .into_iter()
+                .collect(),
+                warnings: vec![],
+            }
+        })
+        .collect::<Vec<_>>();
+
+    Json(ApiResponse::Data(traces))
 }
 
 async fn dependencies() -> impl IntoResponse {

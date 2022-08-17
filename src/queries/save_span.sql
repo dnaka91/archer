@@ -1,1 +1,1 @@
-INSERT INTO spans (data) VALUES (?);
+INSERT INTO spans (trace_id, service, operation, data) VALUES (?, ?, ?, ?);

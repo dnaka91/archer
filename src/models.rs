@@ -7,15 +7,15 @@ pub mod http {
 
     #[derive(Serialize)]
     #[serde(transparent)]
-    pub struct TraceId(String);
+    pub struct TraceId(pub String);
 
     #[derive(Serialize)]
     #[serde(transparent)]
-    pub struct SpanId(String);
+    pub struct SpanId(pub String);
 
     #[derive(Serialize)]
     #[serde(transparent)]
-    pub struct ProcessId(String);
+    pub struct ProcessId(pub String);
 
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]

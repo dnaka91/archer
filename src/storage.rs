@@ -5,7 +5,7 @@ use archer_proto::{jaeger::api_v2::Span, prost::Message};
 use deadpool::managed::{Hook, HookError, HookErrorCause, Pool};
 use deadpool_sqlite::{Config, Manager, Runtime};
 use deadpool_sync::SyncWrapper;
-use rusqlite::Connection;
+use rusqlite::{params, Connection};
 
 #[derive(Clone)]
 pub struct Database(Arc<Pool<Manager>>);
@@ -35,7 +35,7 @@ pub async fn init() -> Result<Database> {
     pool.get()
         .await?
         .interact(|conn| {
-            conn.execute(include_str!("queries/00_create.sql"), [])?;
+            conn.execute_batch(include_str!("queries/00_create.sql"))?;
             anyhow::Ok(())
         })
         .await
@@ -58,14 +58,81 @@ fn async_fn(f: fn(&mut Connection) -> rusqlite::Result<()>) -> Hook<Manager> {
 impl Database {
     pub async fn save_span(&self, span: Span) -> Result<()> {
         let buf = span.encode_to_vec();
+        let buf = zstd::bulk::compress(&buf, 11)?;
 
         self.0
             .get()
             .await?
-            .interact(|conn| conn.execute(include_str!("queries/save_span.sql"), [buf]))
+            .interact(move |conn| {
+                let process = span.process.unwrap();
+                conn.execute(
+                    include_str!("queries/save_span.sql"),
+                    params![
+                        span.trace_id,
+                        &process.service_name,
+                        &span.operation_name,
+                        buf,
+                    ],
+                )
+            })
             .await
             .map_err(|e| anyhow!("{e}"))??;
 
         Ok(())
+    }
+
+    pub async fn list_services(&self) -> Result<Vec<String>> {
+        self.0
+            .get()
+            .await?
+            .interact(|conn| {
+                conn.prepare(include_str!("queries/list_services.sql"))?
+                    .query_map([], |row| row.get(0))?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .await
+            .map_err(|e| anyhow!("{e}"))?
+            .map_err(Into::into)
+    }
+
+    pub async fn list_operations(&self, service: String) -> Result<Vec<String>> {
+        self.0
+            .get()
+            .await?
+            .interact(|conn| {
+                conn.prepare(include_str!("queries/list_operations.sql"))?
+                    .query_map([service], |row| row.get(0))?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .await
+            .map_err(|e| anyhow!("{e}"))?
+            .map_err(Into::into)
+    }
+
+    pub async fn list_spans(
+        &self,
+        service: String,
+        _operation: Option<String>,
+    ) -> Result<Vec<Span>> {
+        let spans = self
+            .0
+            .get()
+            .await?
+            .interact(|conn| {
+                conn.prepare(include_str!("queries/list_spans.sql"))?
+                    .query_map([service], |row| row.get::<_, Vec<u8>>(0))?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .await
+            .map_err(|e| anyhow!("{e}"))??;
+
+        spans
+            .into_iter()
+            .map(|span| {
+                let span = zstd::decode_all(&*span)?;
+                let span = Span::decode(span.as_slice())?;
+                anyhow::Ok(span)
+            })
+            .collect::<Result<Vec<_>>>()
     }
 }
