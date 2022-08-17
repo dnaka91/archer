@@ -149,61 +149,53 @@ async fn traces(
         .into_iter()
         .group_by(|span| span.trace_id.clone())
         .into_iter()
-        .map(|(trace_id, spans)| {
-            let mut spans = spans.peekable();
-            http::Trace {
-                trace_id: http::TraceId(
-                    spans
-                        .peek()
-                        .map(|s| hex::encode(&s.trace_id))
-                        .unwrap_or_default(),
-                ),
-                spans: spans
-                    .into_iter()
-                    .map(|span| http::Span {
-                        trace_id: http::TraceId(hex::encode(span.trace_id)),
-                        span_id: http::SpanId(hex::encode(span.span_id)),
-                        parent_span_id: None,
-                        flags: span.flags,
-                        operation_name: span.operation_name,
-                        references: span
-                            .references
-                            .into_iter()
-                            .map(|r| http::Reference {
-                                ref_type: match r.ref_type() {
-                                    SpanRefType::ChildOf => http::ReferenceType::ChildOf,
-                                    SpanRefType::FollowsFrom => http::ReferenceType::FollowsFrom,
-                                },
-                                trace_id: http::TraceId(hex::encode(r.trace_id)),
-                                span_id: http::SpanId(hex::encode(r.span_id)),
-                            })
-                            .collect(),
-                        start_time: std::time::SystemTime::try_from(span.start_time.unwrap())
-                            .unwrap()
-                            .duration_since(UNIX_EPOCH)
-                            .unwrap()
-                            .as_micros() as u64,
-                        duration: std::time::Duration::try_from(span.duration.unwrap())
-                            .unwrap()
-                            .as_micros() as u64,
-                        tags: vec![],
-                        logs: vec![],
-                        process_id: http::ProcessId("test".to_owned()),
-                        process: None,
-                        warnings: vec![],
-                    })
-                    .collect(),
-                processes: [(
-                    "test".to_owned(),
-                    http::Process {
-                        service_name: params.service.clone(),
-                        tags: vec![],
-                    },
-                )]
+        .map(|(trace_id, spans)| http::Trace {
+            trace_id: http::TraceId(hex::encode(trace_id)),
+            spans: spans
                 .into_iter()
+                .map(|span| http::Span {
+                    trace_id: http::TraceId(hex::encode(span.trace_id)),
+                    span_id: http::SpanId(hex::encode(span.span_id)),
+                    parent_span_id: None,
+                    flags: span.flags,
+                    operation_name: span.operation_name,
+                    references: span
+                        .references
+                        .into_iter()
+                        .map(|r| http::Reference {
+                            ref_type: match r.ref_type() {
+                                SpanRefType::ChildOf => http::ReferenceType::ChildOf,
+                                SpanRefType::FollowsFrom => http::ReferenceType::FollowsFrom,
+                            },
+                            trace_id: http::TraceId(hex::encode(r.trace_id)),
+                            span_id: http::SpanId(hex::encode(r.span_id)),
+                        })
+                        .collect(),
+                    start_time: std::time::SystemTime::try_from(span.start_time.unwrap())
+                        .unwrap()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_micros() as u64,
+                    duration: std::time::Duration::try_from(span.duration.unwrap())
+                        .unwrap()
+                        .as_micros() as u64,
+                    tags: vec![],
+                    logs: vec![],
+                    process_id: http::ProcessId("test".to_owned()),
+                    process: None,
+                    warnings: vec![],
+                })
                 .collect(),
-                warnings: vec![],
-            }
+            processes: [(
+                "test".to_owned(),
+                http::Process {
+                    service_name: params.service.clone(),
+                    tags: vec![],
+                },
+            )]
+            .into_iter()
+            .collect(),
+            warnings: vec![],
         })
         .collect::<Vec<_>>();
 
