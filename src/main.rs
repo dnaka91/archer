@@ -6,6 +6,7 @@ use tracing_subscriber::{filter::Targets, prelude::*};
 
 mod agent;
 mod collector;
+mod convert;
 mod models;
 mod query;
 mod storage;

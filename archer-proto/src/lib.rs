@@ -4,6 +4,10 @@ pub use prost;
 pub use prost_types;
 
 pub mod jaeger {
+    pub mod api_v2 {
+        include!(concat!(env!("OUT_DIR"), "/jaeger.api_v2.rs"));
+    }
+
     pub mod api_v3 {
         include!(concat!(env!("OUT_DIR"), "/jaeger.api_v3.rs"));
     }

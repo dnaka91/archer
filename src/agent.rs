@@ -15,7 +15,7 @@ use tokio::net::UdpSocket;
 use tokio_shutdown::Shutdown;
 use tracing::{info, instrument};
 
-use crate::storage::Database;
+use crate::{convert, storage::Database};
 
 #[instrument(name = "agent", skip_all)]
 pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
@@ -63,7 +63,11 @@ impl AgentSyncHandler for Handler {
         let db = self.0.clone();
 
         tokio::spawn(async move {
-            db.save_span(batch).await.unwrap();
+            for span in batch.spans {
+                db.save_span(convert::span(span, Some(batch.process.clone())))
+                    .await
+                    .unwrap();
+            }
         });
 
         Ok(())

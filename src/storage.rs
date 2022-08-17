@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-use archer_thrift::{jaeger::Batch, thrift::protocol::TCompactOutputProtocol};
+use archer_proto::{jaeger::api_v2::Span, prost::Message};
 use deadpool::managed::{Hook, HookError, HookErrorCause, Pool};
 use deadpool_sqlite::{Config, Manager, Runtime};
 use deadpool_sync::SyncWrapper;
@@ -56,11 +56,8 @@ fn async_fn(f: fn(&mut Connection) -> rusqlite::Result<()>) -> Hook<Manager> {
 }
 
 impl Database {
-    pub async fn save_span(&self, batch: Batch) -> Result<()> {
-        let mut buf = Vec::new();
-        let mut prot = TCompactOutputProtocol::new(&mut buf);
-
-        batch.write_to_out_protocol(&mut prot)?;
+    pub async fn save_span(&self, span: Span) -> Result<()> {
+        let buf = span.encode_to_vec();
 
         self.0
             .get()

@@ -19,7 +19,7 @@ use tower::ServiceBuilder;
 use tower_http::ServiceBuilderExt;
 use tracing::{info, instrument};
 
-use crate::storage::Database;
+use crate::{convert, storage::Database};
 
 #[instrument(name = "collector", skip_all)]
 pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
@@ -46,7 +46,11 @@ async fn traces(
     Thrift(batch): Thrift<Batch>,
     Extension(db): Extension<Database>,
 ) -> impl IntoResponse {
-    db.save_span(batch).await.unwrap();
+    for span in batch.spans {
+        db.save_span(convert::span(span, Some(batch.process.clone())))
+            .await
+            .unwrap();
+    }
     StatusCode::ACCEPTED
 }
 
