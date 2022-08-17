@@ -2,7 +2,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 
 use anyhow::Result;
 use axum::{
-    extract::{OriginalUri, Path},
+    extract::Path,
     headers::IfNoneMatch,
     http::{
         header::{CACHE_CONTROL, CONTENT_TYPE, ETAG, LAST_MODIFIED},
