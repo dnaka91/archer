@@ -16,15 +16,23 @@ axum = { version = "0.5.15", features = ["http2"] }
 deadpool = "0.9.5"
 deadpool-sqlite = "0.5.0"
 deadpool-sync = "0.1.0"
+phf = { version = "0.11.1", features = ["macros"] }
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 serde = { version = "1.0.143", features = ["derive"] }
 tokio = { version = "1.20.1", features = ["macros", "rt-multi-thread"] }
 tokio-shutdown = "0.1.2"
 tower = "0.4.13"
-tower-http = { version = "0.3.4", features = ["fs", "trace"] }
+tower-http = { version = "0.3.4", features = ["trace"] }
 tracing = "0.1.36"
 tracing-subscriber = "0.3.15"
 
 [profile.release]
 lto = true
 strip = true
+
+[build-dependencies]
+mime_guess = "2.0.4"
+quote = { version = "1.0.21", default-features = false }
+regex = "1.6.0"
+siphasher = "0.3.10"
+walkdir = "2.3.2"

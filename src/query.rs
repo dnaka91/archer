@@ -2,19 +2,19 @@ use std::net::{Ipv4Addr, SocketAddr};
 
 use anyhow::Result;
 use axum::{
-    extract::Path,
-    http::StatusCode,
+    extract::{OriginalUri, Path},
+    http::{
+        header::{CACHE_CONTROL, CONTENT_TYPE, ETAG, LAST_MODIFIED},
+        HeaderMap, HeaderValue, StatusCode,
+    },
     response::IntoResponse,
-    routing::{get, get_service},
+    routing::get,
     Extension, Json, Router, Server,
 };
 use serde::Serialize;
 use tokio_shutdown::Shutdown;
 use tower::ServiceBuilder;
-use tower_http::{
-    services::{ServeDir, ServeFile},
-    ServiceBuilderExt,
-};
+use tower_http::ServiceBuilderExt;
 use tracing::{info, instrument};
 
 use crate::storage::Database;
@@ -33,14 +33,7 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
         .route("/api/metrics/calls", get(todo))
         .route("/api/metrics/errors", get(todo))
         .route("/api/metrics/minstep", get(todo))
-        .fallback(
-            get_service(
-                ServeDir::new("jaeger-ui/packages/jaeger-ui/build").fallback(ServeFile::new(
-                    "jaeger-ui/packages/jaeger-ui/build/index.html",
-                )),
-            )
-            .handle_error(handle_error),
-        )
+        .fallback(get(asset))
         .layer(
             ServiceBuilder::new()
                 .trace_for_http()
@@ -137,9 +130,23 @@ async fn todo() -> impl IntoResponse {
     StatusCode::NOT_IMPLEMENTED
 }
 
-async fn handle_error(_: std::io::Error) -> impl IntoResponse {
-    (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "failed serving static asset",
-    )
+include!(concat!(env!("OUT_DIR"), "/assets.rs"));
+
+async fn asset(OriginalUri(uri): OriginalUri) -> Result<impl IntoResponse, StatusCode> {
+    let asset = ASSETS
+        .get(uri.path())
+        .or_else(|| ASSETS.get("/index.html"))
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    let headers = [
+        (CONTENT_TYPE, asset.mime),
+        (ETAG, asset.etag),
+        (LAST_MODIFIED, "Thu, 01 Jan 1970 00:00:00 GMT"),
+        (CACHE_CONTROL, "public, max-age=63072000, must-revalidate"),
+    ]
+    .into_iter()
+    .map(|(name, value)| (name, HeaderValue::from_static(value)))
+    .collect::<HeaderMap>();
+
+    Ok((headers, asset.content))
 }
