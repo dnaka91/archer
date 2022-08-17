@@ -9,4 +9,5 @@ license = "AGPL-3.0-only"
 thrift = "0.16.0"
 
 [build-dependencies]
+walkdir = "2.3.2"
 which = "4.2.5"

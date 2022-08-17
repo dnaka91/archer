@@ -78,6 +78,7 @@ name = "archer-thrift"
 version = "0.1.0"
 dependencies = [
  "thrift",
+ "walkdir",
  "which",
 ]
 
