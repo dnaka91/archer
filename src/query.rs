@@ -3,13 +3,14 @@ use std::net::{Ipv4Addr, SocketAddr};
 use anyhow::Result;
 use axum::{
     extract::{OriginalUri, Path},
+    headers::IfNoneMatch,
     http::{
         header::{CACHE_CONTROL, CONTENT_TYPE, ETAG, LAST_MODIFIED},
-        HeaderMap, HeaderValue, StatusCode,
+        HeaderMap, HeaderValue, StatusCode, Uri,
     },
     response::IntoResponse,
     routing::get,
-    Extension, Json, Router, Server,
+    Extension, Json, Router, Server, TypedHeader,
 };
 use serde::Serialize;
 use tokio_shutdown::Shutdown;
@@ -132,21 +133,29 @@ async fn todo() -> impl IntoResponse {
 
 include!(concat!(env!("OUT_DIR"), "/assets.rs"));
 
-async fn asset(OriginalUri(uri): OriginalUri) -> Result<impl IntoResponse, StatusCode> {
+async fn asset(uri: Uri, if_none_match: Option<TypedHeader<IfNoneMatch>>) -> impl IntoResponse {
     let asset = ASSETS
         .get(uri.path())
         .or_else(|| ASSETS.get("/index.html"))
-        .ok_or(StatusCode::NOT_FOUND)?;
+        .ok_or_else(|| (HeaderMap::new(), StatusCode::NOT_FOUND))?;
 
     let headers = [
         (CONTENT_TYPE, asset.mime),
         (ETAG, asset.etag),
         (LAST_MODIFIED, "Thu, 01 Jan 1970 00:00:00 GMT"),
-        (CACHE_CONTROL, "public, max-age=63072000, must-revalidate"),
+        (CACHE_CONTROL, "public, max-age=2592000, must-revalidate"),
     ]
     .into_iter()
     .map(|(name, value)| (name, HeaderValue::from_static(value)))
     .collect::<HeaderMap>();
 
-    Ok((headers, asset.content))
+    let unmatched = if_none_match
+        .map(|v| v.precondition_passes(&asset.etag.parse().unwrap()))
+        .unwrap_or(true);
+
+    if unmatched {
+        Ok((headers, asset.content))
+    } else {
+        Err((headers, StatusCode::NOT_MODIFIED))
+    }
 }

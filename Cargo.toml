@@ -12,7 +12,7 @@ license = "AGPL-3.0-only"
 anyhow = "1.0.61"
 archer-proto = { path = "archer-proto" }
 archer-thrift = { path = "archer-thrift" }
-axum = { version = "0.5.15", features = ["http2"] }
+axum = { version = "0.5.15", features = ["headers", "http2"] }
 deadpool = "0.9.5"
 deadpool-sqlite = "0.5.0"
 deadpool-sync = "0.1.0"
