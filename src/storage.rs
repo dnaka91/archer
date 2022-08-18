@@ -135,4 +135,27 @@ impl Database {
             })
             .collect::<Result<Vec<_>>>()
     }
+
+    pub async fn find_trace(&self, trace_id: Vec<u8>) -> Result<Vec<Span>> {
+        let spans = self
+            .0
+            .get()
+            .await?
+            .interact(|conn| {
+                conn.prepare(include_str!("queries/find_trace.sql"))?
+                    .query_map([trace_id], |row| row.get::<_, Vec<u8>>(0))?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .await
+            .map_err(|e| anyhow!("{e}"))??;
+
+        spans
+            .into_iter()
+            .map(|span| {
+                let span = zstd::decode_all(&*span)?;
+                let span = Span::decode(span.as_slice())?;
+                anyhow::Ok(span)
+            })
+            .collect::<Result<Vec<_>>>()
+    }
 }

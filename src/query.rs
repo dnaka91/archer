@@ -1,4 +1,7 @@
-use std::net::{Ipv4Addr, SocketAddr};
+use std::{
+    borrow::Cow,
+    net::{Ipv4Addr, SocketAddr},
+};
 
 use anyhow::Result;
 use axum::{
@@ -28,7 +31,7 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
         .route("/api/services/:service/operations", get(operations))
         .route("/api/operations", get(todo))
         .route("/api/traces", get(traces))
-        .route("/api/traces/:id", get(todo))
+        .route("/api/traces/:id", get(trace))
         .route("/api/archive/:id", get(todo))
         .route("/api/dependencies", get(dependencies))
         .route("/api/metrics/latencies", get(todo))
@@ -108,9 +111,28 @@ struct ApiError {
     trace_id: TraceId,
 }
 
-#[derive(Serialize)]
-#[serde(transparent)]
-struct TraceId(String);
+struct TraceId(Vec<u8>);
+
+impl Serialize for TraceId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        hex::encode(&self.0).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for TraceId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <Cow<'_, str>>::deserialize(deserializer)?;
+        hex::decode(value.as_bytes())
+            .map(Self)
+            .map_err(serde::de::Error::custom)
+    }
+}
 
 async fn services(Extension(db): Extension<Database>) -> impl IntoResponse {
     Json(ApiResponse::Data(db.list_services().await.unwrap()))
@@ -148,6 +170,17 @@ async fn traces(
         .collect::<Vec<_>>();
 
     Json(ApiResponse::Data(traces))
+}
+
+async fn trace(
+    Path(TraceId(trace_id)): Path<TraceId>,
+    Extension(db): Extension<Database>,
+) -> impl IntoResponse {
+    let spans = db.find_trace(trace_id.clone()).await.unwrap();
+
+    let trace = convert::trace_to_json(trace_id, spans);
+
+    Json(ApiResponse::Data(vec![trace]))
 }
 
 async fn dependencies() -> impl IntoResponse {
