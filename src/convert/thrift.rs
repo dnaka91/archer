@@ -2,12 +2,9 @@ use archer_proto::{
     jaeger::api_v2::{KeyValue, Log, Process, Span, SpanRef, SpanRefType, ValueType},
     prost_types::{Duration, Timestamp},
 };
-use archer_thrift::jaeger::{
-    Log as ThriftLog, Process as ThriftProcess, Span as ThriftSpan, SpanRef as ThriftSpanRef,
-    SpanRefType as ThriftSpanRefType, Tag as ThriftTag, TagType as ThriftTagType,
-};
+use archer_thrift::jaeger as thrift;
 
-pub fn span(span: ThriftSpan, proc: Option<ThriftProcess>) -> Span {
+pub fn span(span: thrift::Span, proc: Option<thrift::Process>) -> Span {
     // TODO: parent span ID handling
 
     Span {
@@ -39,7 +36,7 @@ fn trace_id(high: i64, low: i64) -> Vec<u8> {
     buf
 }
 
-fn span_ref(span_ref: ThriftSpanRef) -> Option<SpanRef> {
+fn span_ref(span_ref: thrift::SpanRef) -> Option<SpanRef> {
     Some(SpanRef {
         trace_id: trace_id(span_ref.trace_id_high, span_ref.trace_id_low),
         span_id: span_ref.span_id.to_be_bytes().to_vec(),
@@ -47,15 +44,15 @@ fn span_ref(span_ref: ThriftSpanRef) -> Option<SpanRef> {
     })
 }
 
-fn span_ref_type(ty: ThriftSpanRefType) -> Option<SpanRefType> {
+fn span_ref_type(ty: thrift::SpanRefType) -> Option<SpanRefType> {
     Some(match ty {
-        ThriftSpanRefType::CHILD_OF => SpanRefType::ChildOf,
-        ThriftSpanRefType::FOLLOWS_FROM => SpanRefType::FollowsFrom,
+        thrift::SpanRefType::CHILD_OF => SpanRefType::ChildOf,
+        thrift::SpanRefType::FOLLOWS_FROM => SpanRefType::FollowsFrom,
         _ => return None,
     })
 }
 
-fn log(log: ThriftLog) -> Log {
+fn log(log: thrift::Log) -> Log {
     Log {
         timestamp: Some(timestamp(log.timestamp)),
         fields: log.fields.into_iter().map(tag).collect(),
@@ -79,7 +76,7 @@ fn micros(micros: i64) -> (i64, i32) {
     (seconds, nanos)
 }
 
-fn process(process: ThriftProcess) -> Process {
+fn process(process: thrift::Process) -> Process {
     Process {
         service_name: process.service_name,
         tags: process
@@ -91,33 +88,33 @@ fn process(process: ThriftProcess) -> Process {
     }
 }
 
-fn tag(tag: ThriftTag) -> KeyValue {
+fn tag(tag: thrift::Tag) -> KeyValue {
     match tag.v_type {
-        ThriftTagType::BOOL => KeyValue {
+        thrift::TagType::BOOL => KeyValue {
             key: tag.key,
             v_type: ValueType::Bool as _,
             v_bool: tag.v_bool.unwrap_or_default(),
             ..KeyValue::default()
         },
-        ThriftTagType::BINARY => KeyValue {
+        thrift::TagType::BINARY => KeyValue {
             key: tag.key,
             v_type: ValueType::Binary as _,
             v_binary: tag.v_binary.unwrap_or_default(),
             ..KeyValue::default()
         },
-        ThriftTagType::DOUBLE => KeyValue {
+        thrift::TagType::DOUBLE => KeyValue {
             key: tag.key,
             v_type: ValueType::Float64 as _,
             v_float64: tag.v_double.unwrap_or_default().0,
             ..KeyValue::default()
         },
-        ThriftTagType::LONG => KeyValue {
+        thrift::TagType::LONG => KeyValue {
             key: tag.key,
             v_type: ValueType::Int64 as _,
             v_int64: tag.v_long.unwrap_or_default(),
             ..KeyValue::default()
         },
-        ThriftTagType::STRING => KeyValue {
+        thrift::TagType::STRING => KeyValue {
             key: tag.key,
             v_type: ValueType::String as _,
             v_str: tag.v_str.unwrap_or_default(),
