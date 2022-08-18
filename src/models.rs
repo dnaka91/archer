@@ -9,13 +9,31 @@ pub mod http {
     #[serde(transparent)]
     pub struct TraceId(pub String);
 
+    impl From<String> for TraceId {
+        fn from(id: String) -> Self {
+            Self(id)
+        }
+    }
+
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct SpanId(pub String);
 
+    impl From<String> for SpanId {
+        fn from(id: String) -> Self {
+            Self(id)
+        }
+    }
+
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct ProcessId(pub String);
+
+    impl From<String> for ProcessId {
+        fn from(id: String) -> Self {
+            Self(id)
+        }
+    }
 
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]

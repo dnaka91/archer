@@ -1,11 +1,6 @@
-use std::{
-    collections::HashMap,
-    net::{Ipv4Addr, SocketAddr},
-    time::UNIX_EPOCH,
-};
+use std::net::{Ipv4Addr, SocketAddr};
 
 use anyhow::Result;
-use archer_proto::jaeger::api_v2::SpanRefType;
 use axum::{
     extract::{Path, Query},
     headers::IfNoneMatch,
@@ -24,7 +19,7 @@ use tower::ServiceBuilder;
 use tower_http::ServiceBuilderExt;
 use tracing::{info, instrument};
 
-use crate::{models::http, storage::Database};
+use crate::{convert, storage::Database};
 
 #[instrument(name = "query", skip_all)]
 pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
@@ -149,54 +144,7 @@ async fn traces(
         .into_iter()
         .group_by(|span| span.trace_id.clone())
         .into_iter()
-        .map(|(trace_id, spans)| http::Trace {
-            trace_id: http::TraceId(hex::encode(trace_id)),
-            spans: spans
-                .into_iter()
-                .map(|span| http::Span {
-                    trace_id: http::TraceId(hex::encode(span.trace_id)),
-                    span_id: http::SpanId(hex::encode(span.span_id)),
-                    parent_span_id: None,
-                    flags: span.flags,
-                    operation_name: span.operation_name,
-                    references: span
-                        .references
-                        .into_iter()
-                        .map(|r| http::Reference {
-                            ref_type: match r.ref_type() {
-                                SpanRefType::ChildOf => http::ReferenceType::ChildOf,
-                                SpanRefType::FollowsFrom => http::ReferenceType::FollowsFrom,
-                            },
-                            trace_id: http::TraceId(hex::encode(r.trace_id)),
-                            span_id: http::SpanId(hex::encode(r.span_id)),
-                        })
-                        .collect(),
-                    start_time: std::time::SystemTime::try_from(span.start_time.unwrap())
-                        .unwrap()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap()
-                        .as_micros() as u64,
-                    duration: std::time::Duration::try_from(span.duration.unwrap())
-                        .unwrap()
-                        .as_micros() as u64,
-                    tags: vec![],
-                    logs: vec![],
-                    process_id: http::ProcessId("test".to_owned()),
-                    process: None,
-                    warnings: vec![],
-                })
-                .collect(),
-            processes: [(
-                "test".to_owned(),
-                http::Process {
-                    service_name: params.service.clone(),
-                    tags: vec![],
-                },
-            )]
-            .into_iter()
-            .collect(),
-            warnings: vec![],
-        })
+        .map(|(trace_id, spans)| convert::trace_to_json(trace_id, spans))
         .collect::<Vec<_>>();
 
     Json(ApiResponse::Data(traces))

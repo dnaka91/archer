@@ -64,7 +64,7 @@ impl AgentSyncHandler for Handler {
 
         tokio::spawn(async move {
             for span in batch.spans {
-                db.save_span(convert::span(span, Some(batch.process.clone())))
+                db.save_span(convert::span_from_thrift(span, Some(batch.process.clone())))
                     .await
                     .unwrap();
             }
