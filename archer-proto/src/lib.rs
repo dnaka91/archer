@@ -2,6 +2,7 @@
 
 pub use prost;
 pub use prost_types;
+pub use tonic;
 
 pub mod jaeger {
     pub mod api_v2 {

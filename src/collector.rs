@@ -4,6 +4,14 @@ use std::{
 };
 
 use anyhow::Result;
+use archer_proto::{
+    jaeger::api_v2::{
+        self,
+        collector_service_server::{self, CollectorServiceServer},
+        PostSpansRequest, PostSpansResponse,
+    },
+    tonic,
+};
 use archer_thrift::{jaeger::Batch, thrift::protocol::TBinaryInputProtocol};
 use axum::{
     async_trait,
@@ -23,14 +31,41 @@ use crate::{convert, storage::Database};
 
 #[instrument(name = "collector", skip_all)]
 pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
+    let (http, grpc) = tokio::try_join!(
+        tokio::spawn(run_http(
+            tracing::Span::current(),
+            shutdown.clone(),
+            database.clone(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 14268)),
+        )),
+        tokio::spawn(run_grpc(
+            tracing::Span::current(),
+            shutdown,
+            database,
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 14250)),
+        ))
+    )?;
+
+    http?;
+    grpc?;
+
+    Ok(())
+}
+
+#[instrument(name = "http", parent = parent, skip_all)]
+async fn run_http(
+    parent: tracing::Span,
+    shutdown: Shutdown,
+    database: Database,
+    addr: SocketAddr,
+) -> Result<()> {
+    info!(protocol = %"http", "listening on http://{addr}");
+
     let app = Router::new().route("/api/traces", post(traces)).layer(
         ServiceBuilder::new()
             .trace_for_http()
             .layer(Extension(database)),
     );
-
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 14268));
-    info!("listening on http://{addr}");
 
     Server::bind(&addr)
         .serve(app.into_make_service())
@@ -95,5 +130,45 @@ impl ThriftDeserialize for archer_thrift::jaeger::Batch {
     {
         let mut prot = TBinaryInputProtocol::new(data, true);
         Self::read_from_in_protocol(&mut prot).map_err(Into::into)
+    }
+}
+
+#[instrument(name = "grpc", parent = parent, skip_all)]
+async fn run_grpc(
+    parent: tracing::Span,
+    shutdown: Shutdown,
+    database: Database,
+    addr: SocketAddr,
+) -> Result<()> {
+    info!(protocol = %"grpc", "listening on http://{addr}");
+
+    tonic::transport::Server::builder()
+        .add_service(CollectorServiceServer::new(CollectorService(database)))
+        .serve_with_shutdown(addr, shutdown.handle())
+        .await?;
+
+    info!("server stopped");
+
+    Ok(())
+}
+
+struct CollectorService(Database);
+
+#[tonic::async_trait]
+impl collector_service_server::CollectorService for CollectorService {
+    async fn post_spans(
+        &self,
+        request: tonic::Request<PostSpansRequest>,
+    ) -> Result<tonic::Response<PostSpansResponse>, tonic::Status> {
+        let PostSpansRequest { batch } = request.into_inner();
+        let api_v2::Batch { spans, process } = batch.unwrap();
+        let process = process.unwrap();
+
+        for mut span in spans {
+            span.process.get_or_insert_with(|| process.clone());
+            self.0.save_span(span).await.unwrap();
+        }
+
+        Ok(tonic::Response::new(PostSpansResponse {}))
     }
 }
