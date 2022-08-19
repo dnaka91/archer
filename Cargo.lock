@@ -42,13 +42,12 @@ name = "archer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "archer-http",
  "archer-proto",
  "archer-thrift",
- "axum",
  "deadpool",
  "deadpool-sqlite",
  "deadpool-sync",
- "hex",
  "itertools",
  "mime_guess",
  "phf",
@@ -59,12 +58,21 @@ dependencies = [
  "siphasher",
  "tokio",
  "tokio-shutdown",
- "tower",
- "tower-http",
  "tracing",
  "tracing-subscriber",
  "walkdir",
  "zstd",
+]
+
+[[package]]
+name = "archer-http"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "hex",
+ "serde",
+ "tower",
+ "tower-http",
 ]
 
 [[package]]

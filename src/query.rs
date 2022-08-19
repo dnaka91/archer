@@ -1,25 +1,25 @@
-use std::{
-    borrow::Cow,
-    net::{Ipv4Addr, SocketAddr},
-};
+use std::net::{Ipv4Addr, SocketAddr};
 
 use anyhow::Result;
-use axum::{
-    extract::{Path, Query},
-    headers::IfNoneMatch,
-    http::{
-        header::{CACHE_CONTROL, CONTENT_TYPE, ETAG, LAST_MODIFIED},
-        HeaderMap, HeaderValue, StatusCode, Uri,
+use archer_http::{
+    axum::{
+        extract::{Path, Query},
+        headers::IfNoneMatch,
+        http::{
+            header::{CACHE_CONTROL, CONTENT_TYPE, ETAG, LAST_MODIFIED},
+            HeaderMap, HeaderValue, StatusCode, Uri,
+        },
+        response::IntoResponse,
+        routing::get,
+        Extension, Router, Server, TypedHeader,
     },
-    response::{IntoResponse, Response},
-    routing::get,
-    Extension, Json, Router, Server, TypedHeader,
+    tower::ServiceBuilder,
+    tower_http::ServiceBuilderExt,
+    ApiError, ApiResponse, TraceId,
 };
 use itertools::Itertools;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tokio_shutdown::Shutdown;
-use tower::ServiceBuilder;
-use tower_http::ServiceBuilderExt;
 use tracing::{info, instrument};
 
 use crate::{convert, storage::Database};
@@ -56,112 +56,6 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
     info!("server stopped");
 
     Ok(())
-}
-
-#[allow(dead_code)]
-enum ApiResponse<T> {
-    Data(Vec<T>),
-    Error(ApiError),
-}
-
-impl<T> Serialize for ApiResponse<T>
-where
-    T: Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        #[derive(Serialize)]
-        struct Response<'a, T> {
-            data: &'a [T],
-            total: usize,
-            limit: usize,
-            offset: usize,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            errors: Option<[ResponseError<'a>; 1]>,
-        }
-
-        #[derive(Serialize)]
-        struct ResponseError<'a> {
-            code: u16,
-            msg: &'a str,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            trace_id: Option<&'a TraceId>,
-        }
-
-        let resp = match self {
-            Self::Data(data) => Response {
-                data,
-                total: data.len(),
-                limit: 0,
-                offset: 0,
-                errors: None,
-            },
-            Self::Error(error) => Response {
-                data: &[],
-                total: 0,
-                limit: 0,
-                offset: 0,
-                errors: Some([ResponseError {
-                    code: error.code.as_u16(),
-                    msg: &error.msg,
-                    trace_id: error.trace_id.as_ref(),
-                }]),
-            },
-        };
-
-        resp.serialize(serializer)
-    }
-}
-
-impl<T> IntoResponse for ApiResponse<T>
-where
-    T: Serialize,
-{
-    fn into_response(self) -> Response {
-        let code = if let Self::Error(ApiError { code, .. }) = &self {
-            *code
-        } else {
-            StatusCode::OK
-        };
-
-        let mut resp = Json(self).into_response();
-        if resp.status() == StatusCode::OK {
-            *resp.status_mut() = code;
-        }
-
-        resp
-    }
-}
-
-struct ApiError {
-    code: StatusCode,
-    msg: Cow<'static, str>,
-    trace_id: Option<TraceId>,
-}
-
-struct TraceId(Vec<u8>);
-
-impl Serialize for TraceId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        hex::encode(&self.0).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for TraceId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <Cow<'_, str>>::deserialize(deserializer)?;
-        hex::decode(value.as_bytes())
-            .map(Self)
-            .map_err(serde::de::Error::custom)
-    }
 }
 
 async fn services(Extension(db): Extension<Database>) -> impl IntoResponse {

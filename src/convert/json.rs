@@ -1,18 +1,17 @@
 use std::{collections::HashMap, time::UNIX_EPOCH};
 
+use archer_http as json;
 use archer_proto::{
     jaeger::api_v2::{KeyValue, Log, Process, Span, SpanRef, SpanRefType, ValueType},
     prost_types::{Duration, Timestamp},
 };
-
-use crate::models::http as json;
 
 pub fn trace(trace_id: Vec<u8>, spans: impl IntoIterator<Item = Span>) -> json::Trace {
     let mut processes = HashMap::new();
     let mut counter = 0;
 
     json::Trace {
-        trace_id: hex::encode(trace_id).into(),
+        trace_id: trace_id.into(),
         spans: spans
             .into_iter()
             .map(|mut s| {
@@ -27,8 +26,8 @@ pub fn trace(trace_id: Vec<u8>, spans: impl IntoIterator<Item = Span>) -> json::
 
 fn span(span: Span, process_id: json::ProcessId) -> json::Span {
     json::Span {
-        trace_id: hex::encode(span.trace_id).into(),
-        span_id: hex::encode(span.span_id).into(),
+        trace_id: span.trace_id.into(),
+        span_id: span.span_id.into(),
         parent_span_id: None,
         flags: span.flags,
         operation_name: span.operation_name,
@@ -49,8 +48,8 @@ fn reference(span_ref: SpanRef) -> json::Reference {
             SpanRefType::ChildOf => json::ReferenceType::ChildOf,
             SpanRefType::FollowsFrom => json::ReferenceType::FollowsFrom,
         },
-        trace_id: hex::encode(span_ref.trace_id).into(),
-        span_id: hex::encode(span_ref.span_id).into(),
+        trace_id: span_ref.trace_id.into(),
+        span_id: span_ref.span_id.into(),
     }
 }
 

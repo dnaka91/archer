@@ -3,6 +3,7 @@ allow = []
 allow-osi-fsf-free = "both"
 exceptions = [
     { allow = ["AGPL-3.0"], name = "archer" },
+    { allow = ["AGPL-3.0"], name = "archer-http" },
     { allow = ["AGPL-3.0"], name = "archer-proto" },
     { allow = ["AGPL-3.0"], name = "archer-thrift" },
     { allow = ["Unicode-DFS-2016"], name = "unicode-ident" },

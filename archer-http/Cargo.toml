@@ -1,0 +1,13 @@
+[package]
+name = "archer-http"
+version = "0.1.0"
+authors = ["Dominik Nakamura <dnaka91@gmail.com>"]
+edition = "2021"
+license = "AGPL-3.0-only"
+
+[dependencies]
+axum = { version = "0.5.15", features = ["headers", "http2"] }
+hex = "0.4.3"
+serde = { version = "1.0.143", features = ["derive"] }
+tower = "0.4.13"
+tower-http = { version = "0.3.4", features = ["trace"] }
