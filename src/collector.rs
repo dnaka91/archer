@@ -47,7 +47,7 @@ async fn traces(
     Extension(db): Extension<Database>,
 ) -> impl IntoResponse {
     for span in batch.spans {
-        db.save_span(convert::span_from_thrift(span, Some(batch.process.clone())))
+        db.save_span(convert::span_from_thrift(span, Some(batch.process.clone())).unwrap())
             .await
             .unwrap();
     }
