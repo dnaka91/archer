@@ -11,7 +11,7 @@ use axum::{
         header::{CACHE_CONTROL, CONTENT_TYPE, ETAG, LAST_MODIFIED},
         HeaderMap, HeaderValue, StatusCode, Uri,
     },
-    response::IntoResponse,
+    response::{IntoResponse, Response},
     routing::get,
     Extension, Json, Router, Server, TypedHeader,
 };
@@ -61,7 +61,7 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
 #[allow(dead_code)]
 enum ApiResponse<T> {
     Data(Vec<T>),
-    Errors(Vec<ApiError>),
+    Error(ApiError),
 }
 
 impl<T> Serialize for ApiResponse<T>
@@ -78,8 +78,16 @@ where
             total: usize,
             limit: usize,
             offset: usize,
-            #[serde(skip_serializing_if = "<[_]>::is_empty")]
-            errors: &'a [ApiError],
+            #[serde(skip_serializing_if = "Option::is_none")]
+            errors: Option<[ResponseError<'a>; 1]>,
+        }
+
+        #[derive(Serialize)]
+        struct ResponseError<'a> {
+            code: u16,
+            msg: &'a str,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            trace_id: Option<&'a TraceId>,
         }
 
         let resp = match self {
@@ -88,14 +96,18 @@ where
                 total: data.len(),
                 limit: 0,
                 offset: 0,
-                errors: &[],
+                errors: None,
             },
-            Self::Errors(errors) => Response {
+            Self::Error(error) => Response {
                 data: &[],
                 total: 0,
                 limit: 0,
                 offset: 0,
-                errors,
+                errors: Some([ResponseError {
+                    code: error.code.as_u16(),
+                    msg: &error.msg,
+                    trace_id: error.trace_id.as_ref(),
+                }]),
             },
         };
 
@@ -103,12 +115,30 @@ where
     }
 }
 
-#[derive(Serialize)]
+impl<T> IntoResponse for ApiResponse<T>
+where
+    T: Serialize,
+{
+    fn into_response(self) -> Response {
+        let code = if let Self::Error(ApiError { code, .. }) = &self {
+            *code
+        } else {
+            StatusCode::OK
+        };
+
+        let mut resp = Json(self).into_response();
+        if resp.status() == StatusCode::OK {
+            *resp.status_mut() = code;
+        }
+
+        resp
+    }
+}
+
 struct ApiError {
-    code: u32,
-    msg: String,
-    #[serde(rename = "traceID")]
-    trace_id: TraceId,
+    code: StatusCode,
+    msg: Cow<'static, str>,
+    trace_id: Option<TraceId>,
 }
 
 struct TraceId(Vec<u8>);
@@ -135,16 +165,14 @@ impl<'de> Deserialize<'de> for TraceId {
 }
 
 async fn services(Extension(db): Extension<Database>) -> impl IntoResponse {
-    Json(ApiResponse::Data(db.list_services().await.unwrap()))
+    ApiResponse::Data(db.list_services().await.unwrap())
 }
 
 async fn operations(
     Path(service): Path<String>,
     Extension(db): Extension<Database>,
 ) -> impl IntoResponse {
-    Json(ApiResponse::Data(
-        db.list_operations(service).await.unwrap(),
-    ))
+    ApiResponse::Data(db.list_operations(service).await.unwrap())
 }
 
 #[derive(Deserialize)]
@@ -169,7 +197,7 @@ async fn traces(
         .map(|(trace_id, spans)| convert::trace_to_json(trace_id, spans))
         .collect::<Vec<_>>();
 
-    Json(ApiResponse::Data(traces))
+    ApiResponse::Data(traces)
 }
 
 async fn trace(
@@ -177,14 +205,21 @@ async fn trace(
     Extension(db): Extension<Database>,
 ) -> impl IntoResponse {
     let spans = db.find_trace(trace_id.clone()).await.unwrap();
+    if spans.is_empty() {
+        return ApiResponse::Error(ApiError {
+            code: StatusCode::NOT_FOUND,
+            msg: "trace ID not found".into(),
+            trace_id: None,
+        });
+    }
 
     let trace = convert::trace_to_json(trace_id, spans);
 
-    Json(ApiResponse::Data(vec![trace]))
+    ApiResponse::Data(vec![trace])
 }
 
 async fn dependencies() -> impl IntoResponse {
-    Json(ApiResponse::Data(Vec::<()>::new()))
+    ApiResponse::Data(Vec::<()>::new())
 }
 
 async fn todo() -> impl IntoResponse {
