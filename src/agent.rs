@@ -16,43 +16,73 @@ use archer_thrift::{
 };
 use tokio::net::UdpSocket;
 use tokio_shutdown::Shutdown;
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, Span};
 
 use crate::{convert, storage::Database};
 
 #[instrument(name = "agent", skip_all)]
 pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 6831));
+    let (compact, binary) = tokio::try_join!(
+        tokio::spawn(run_compact(
+            Span::current(),
+            shutdown.clone(),
+            database.clone(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 6831)),
+        )),
+        tokio::spawn(run_binary(
+            Span::current(),
+            shutdown,
+            database,
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 6832)),
+        )),
+    )?;
+
+    compact?;
+    binary?;
+
+    Ok(())
+}
+
+#[instrument(name = "compact", parent = parent, skip_all)]
+async fn run_compact(
+    parent: Span,
+    shutdown: Shutdown,
+    database: Database,
+    addr: SocketAddr,
+) -> Result<()> {
     let socket = UdpSocket::bind(addr).await?;
-    info!(protocol = %"compact", "listening on http://{addr}");
+    info!("listening on http://{addr}");
 
-    let compact = run_udp_server(
-        shutdown.clone(),
-        database.clone(),
-        socket,
-        |processor, input, output| {
-            processor.process(
-                &mut TCompactInputProtocol::new(input),
-                &mut TCompactOutputProtocol::new(output),
-            )
-        },
-    );
+    run_udp_server(shutdown, database, socket, |processor, input, output| {
+        processor.process(
+            &mut TCompactInputProtocol::new(input),
+            &mut TCompactOutputProtocol::new(output),
+        )
+    })
+    .await?;
 
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 6832));
+    info!("server stopped");
+
+    Ok(())
+}
+
+#[instrument(name = "binary", parent = parent, skip_all)]
+async fn run_binary(
+    parent: Span,
+    shutdown: Shutdown,
+    database: Database,
+    addr: SocketAddr,
+) -> Result<()> {
     let socket = UdpSocket::bind(addr).await?;
-    info!(protocol = %"binary", "listening on http://{addr}");
+    info!("listening on http://{addr}");
 
-    let binary = run_udp_server(shutdown, database, socket, |processor, input, output| {
+    run_udp_server(shutdown, database, socket, |processor, input, output| {
         processor.process(
             &mut TBinaryInputProtocol::new(input, true),
             &mut TBinaryOutputProtocol::new(output, true),
         )
-    });
-
-    let (compact, binary) = tokio::try_join!(tokio::spawn(compact), tokio::spawn(binary))?;
-
-    compact?;
-    binary?;
+    })
+    .await?;
 
     info!("server stopped");
 
