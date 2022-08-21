@@ -61,7 +61,7 @@ async fn run_http(
     database: Database,
     addr: SocketAddr,
 ) -> Result<()> {
-    info!(protocol = %"http", "listening on http://{addr}");
+    info!("listening on http://{addr}");
 
     let app = Router::new().route("/api/traces", post(traces)).layer(
         ServiceBuilder::new()
@@ -142,7 +142,7 @@ async fn run_grpc(
     database: Database,
     addr: SocketAddr,
 ) -> Result<()> {
-    info!(protocol = %"grpc", "listening on http://{addr}");
+    info!("listening on http://{addr}");
 
     tonic::transport::Server::builder()
         .add_service(CollectorServiceServer::new(CollectorService(database)))
