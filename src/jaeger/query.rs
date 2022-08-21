@@ -86,6 +86,7 @@ async fn traces(
 
     let traces = spans
         .into_iter()
+        .sorted_by_key(|span| span.trace_id)
         .group_by(|span| span.trace_id)
         .into_iter()
         .map(|(trace_id, spans)| convert::trace_to_json(trace_id, spans))
