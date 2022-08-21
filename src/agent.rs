@@ -59,7 +59,7 @@ async fn run_compact(
             &mut TCompactOutputProtocol::new(output),
         )
     })
-    .await?;
+    .await;
 
     info!("server stopped");
 
@@ -82,7 +82,7 @@ async fn run_binary(
             &mut TBinaryOutputProtocol::new(output, true),
         )
     })
-    .await?;
+    .await;
 
     info!("server stopped");
 
@@ -94,7 +94,7 @@ async fn run_udp_server(
     database: Database,
     socket: UdpSocket,
     process: impl Fn(&AgentSyncProcessor<Handler>, &[u8], &mut [u8]) -> Result<(), thrift::Error>,
-) -> Result<()> {
+)  {
     let mut buf_in = vec![0u8; 65_000];
     let mut buf_out = vec![0u8; 65_000];
 
@@ -125,8 +125,6 @@ async fn run_udp_server(
             }
         }
     }
-
-    Ok(())
 }
 
 struct Handler(Database);
