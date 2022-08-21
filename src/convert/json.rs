@@ -53,7 +53,7 @@ fn reference(span_ref: Reference) -> json::Reference {
 }
 
 fn timestamp(timestamp: OffsetDateTime) -> u64 {
-    timestamp.unix_timestamp() as _
+    (timestamp.unix_timestamp_nanos() / 1000) as _
 }
 
 fn duration(duration: Duration) -> u64 {
