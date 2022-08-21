@@ -4,11 +4,10 @@ use tokio_shutdown::Shutdown;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{filter::Targets, prelude::*};
 
-mod agent;
-mod collector;
 mod convert;
+mod jaeger;
 mod models;
-mod query;
+mod otel;
 mod storage;
 
 #[tokio::main]
@@ -27,12 +26,19 @@ async fn main() -> Result<()> {
     let shutdown = Shutdown::new()?;
 
     tokio::try_join!(
-        flatten(tokio::spawn(agent::run(shutdown.clone(), database.clone()))),
-        flatten(tokio::spawn(collector::run(
+        flatten(tokio::spawn(jaeger::agent::run(
             shutdown.clone(),
             database.clone()
         ))),
-        flatten(tokio::spawn(query::run(shutdown, database))),
+        flatten(tokio::spawn(jaeger::collector::run(
+            shutdown.clone(),
+            database.clone()
+        ))),
+        flatten(tokio::spawn(jaeger::query::run(
+            shutdown.clone(),
+            database.clone()
+        ))),
+        flatten(tokio::spawn(otel::collector::run(shutdown, database))),
     )?;
 
     Ok(())

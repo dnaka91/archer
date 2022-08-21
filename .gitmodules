@@ -4,3 +4,6 @@
 [submodule "jaeger-ui"]
 	path = jaeger-ui
 	url = git@github.com:jaegertracing/jaeger-ui
+[submodule "opentelemetry-proto"]
+	path = opentelemetry-proto
+	url = git@github.com:open-telemetry/opentelemetry-proto
