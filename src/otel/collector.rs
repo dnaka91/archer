@@ -179,6 +179,7 @@ async fn run_grpc(
     info!("listening on http://{addr}");
 
     tonic::transport::Server::builder()
+        .layer(ServiceBuilder::new().trace_for_grpc())
         .add_service(TraceServiceServer::new(TraceService(database)))
         .serve_with_shutdown(addr, shutdown.handle())
         .await?;
