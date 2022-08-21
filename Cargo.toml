@@ -13,14 +13,17 @@ anyhow = "1.0.62"
 archer-http = { path = "archer-http" }
 archer-proto = { path = "archer-proto" }
 archer-thrift = { path = "archer-thrift" }
+bytes = "1.2.1"
 deadpool = "0.9.5"
 deadpool-sqlite = "0.5.0"
 deadpool-sync = "0.1.0"
 itertools = "0.10.3"
+mime = "0.3.16"
 phf = { version = "0.11.1", features = ["macros"] }
 postcard = { version = "1.0.2", default-features = false, features = ["use-std"] }
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 serde = { version = "1.0.143", features = ["derive"] }
+thiserror = "1.0.32"
 time = { version = "0.3.13", features = ["serde"] }
 tokio = { version = "1.20.1", features = ["macros", "rt-multi-thread"] }
 tokio-shutdown = "0.1.3"
