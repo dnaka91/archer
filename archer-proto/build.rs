@@ -6,10 +6,6 @@ fn main() -> Result<()> {
             "../jaeger-idl/proto/api_v2/collector.proto",
             "../jaeger-idl/proto/api_v2/model.proto",
         ],
-        &[
-            "external",
-            "../jaeger-idl/proto/api_v2",
-            "../jaeger-idl/opentelemetry-proto",
-        ],
+        &["external", "../jaeger-idl/proto/api_v2"],
     )
 }
