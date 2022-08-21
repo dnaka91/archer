@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use archer_proto::{jaeger::api_v2 as proto, prost_types};
 use time::{Duration, OffsetDateTime};
 
@@ -15,7 +15,7 @@ pub fn span(span: proto::Span) -> Result<Span> {
         duration: duration(span.duration.unwrap_or_default()),
         tags: span.tags.into_iter().map(key_value).collect(),
         logs: span.logs.into_iter().map(log).collect::<Result<_>>()?,
-        process: process(span.process.unwrap_or_default()),
+        process: process(span.process.context("process field missing")?),
     })
 }
 

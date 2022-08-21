@@ -94,7 +94,7 @@ async fn run_udp_server(
     database: Database,
     socket: UdpSocket,
     process: impl Fn(&AgentSyncProcessor<Handler>, &[u8], &mut [u8]) -> Result<(), thrift::Error>,
-)  {
+) {
     let mut buf_in = vec![0u8; 65_000];
     let mut buf_out = vec![0u8; 65_000];
 

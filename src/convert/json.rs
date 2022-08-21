@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::UNIX_EPOCH};
+use std::collections::HashMap;
 
 use archer_http as json;
 use time::{Duration, OffsetDateTime};
@@ -53,15 +53,11 @@ fn reference(span_ref: Reference) -> json::Reference {
 }
 
 fn timestamp(timestamp: OffsetDateTime) -> u64 {
-    std::time::SystemTime::try_from(timestamp)
-        .unwrap()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_micros() as u64
+    timestamp.unix_timestamp() as _
 }
 
 fn duration(duration: Duration) -> u64 {
-    std::time::Duration::try_from(duration).unwrap().as_micros() as u64
+    duration.whole_microseconds() as _
 }
 
 fn key_value(kv: Tag) -> json::KeyValue {

@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use archer_thrift::jaeger as thrift;
 use time::{Duration, OffsetDateTime};
 
@@ -37,7 +37,7 @@ pub fn span(span: thrift::Span, proc: Option<thrift::Process>) -> Result<Span> {
             .into_iter()
             .map(log)
             .collect::<Result<_>>()?,
-        process: process(proc.unwrap())?,
+        process: process(proc.context("process field missing")?)?,
     })
 }
 
