@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS spans(
-    id INT PRIMARY KEY,
-    trace_id BLOB NOT NULL,
-    service STRING NOT NULL,
-    operation STRING NOT NULL,
-    data BLOB NOT NULL
-);
+    id        INTEGER PRIMARY KEY,
+    trace_id  BLOB    NOT NULL,
+    service   TEXT    NOT NULL,
+    operation TEXT    NOT NULL,
+    data      BLOB    NOT NULL
+) STRICT;
