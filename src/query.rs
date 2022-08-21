@@ -86,7 +86,7 @@ async fn traces(
 
     let traces = spans
         .into_iter()
-        .group_by(|span| span.trace_id.clone())
+        .group_by(|span| span.trace_id)
         .into_iter()
         .map(|(trace_id, spans)| convert::trace_to_json(trace_id, spans))
         .collect::<Vec<_>>();
@@ -98,7 +98,7 @@ async fn trace(
     Path(TraceId(trace_id)): Path<TraceId>,
     Extension(db): Extension<Database>,
 ) -> impl IntoResponse {
-    let spans = db.find_trace(trace_id.clone()).await.unwrap();
+    let spans = db.find_trace(trace_id).await.unwrap();
     if spans.is_empty() {
         return ApiResponse::Error(ApiError {
             code: StatusCode::NOT_FOUND,

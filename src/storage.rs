@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-use archer_proto::{jaeger::api_v2::Span, prost::Message};
 use deadpool::managed::{Hook, HookError, HookErrorCause, Pool};
 use deadpool_sqlite::{Config, Manager, Runtime};
 use deadpool_sync::SyncWrapper;
 use rusqlite::{params, Connection};
+
+use crate::models::Span;
 
 #[derive(Clone)]
 pub struct Database(Arc<Pool<Manager>>);
@@ -57,19 +58,18 @@ fn async_fn(f: fn(&mut Connection) -> rusqlite::Result<()>) -> Hook<Manager> {
 
 impl Database {
     pub async fn save_span(&self, span: Span) -> Result<()> {
-        let buf = span.encode_to_vec();
+        let buf = postcard::to_stdvec(&span)?;
         let buf = zstd::bulk::compress(&buf, 11)?;
 
         self.0
             .get()
             .await?
             .interact(move |conn| {
-                let process = span.process.unwrap();
                 conn.execute(
                     include_str!("queries/save_span.sql"),
                     params![
-                        span.trace_id,
-                        &process.service_name,
+                        span.trace_id.to_be_bytes(),
+                        &span.process.service,
                         &span.operation_name,
                         buf,
                     ],
@@ -130,20 +130,20 @@ impl Database {
             .into_iter()
             .map(|span| {
                 let span = zstd::decode_all(&*span)?;
-                let span = Span::decode(span.as_slice())?;
+                let span = postcard::from_bytes(&span)?;
                 anyhow::Ok(span)
             })
             .collect::<Result<Vec<_>>>()
     }
 
-    pub async fn find_trace(&self, trace_id: Vec<u8>) -> Result<Vec<Span>> {
+    pub async fn find_trace(&self, trace_id: u128) -> Result<Vec<Span>> {
         let spans = self
             .0
             .get()
             .await?
-            .interact(|conn| {
+            .interact(move |conn| {
                 conn.prepare(include_str!("queries/find_trace.sql"))?
-                    .query_map([trace_id], |row| row.get::<_, Vec<u8>>(0))?
+                    .query_map([trace_id.to_be_bytes()], |row| row.get::<_, Vec<u8>>(0))?
                     .collect::<Result<Vec<_>, _>>()
             })
             .await
@@ -153,7 +153,7 @@ impl Database {
             .into_iter()
             .map(|span| {
                 let span = zstd::decode_all(&*span)?;
-                let span = Span::decode(span.as_slice())?;
+                let span = postcard::from_bytes(&span)?;
                 anyhow::Ok(span)
             })
             .collect::<Result<Vec<_>>>()

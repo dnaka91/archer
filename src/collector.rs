@@ -165,11 +165,16 @@ impl collector_service_server::CollectorService for CollectorService {
         let PostSpansRequest { batch } = request.into_inner();
         let api_v2::Batch { spans, process } = batch.unwrap();
         let process = process.unwrap();
+        let db = self.0.clone();
 
-        for mut span in spans {
-            span.process.get_or_insert_with(|| process.clone());
-            self.0.save_span(span).await.unwrap();
-        }
+        tokio::spawn(async move {
+            for mut span in spans {
+                span.process.get_or_insert_with(|| process.clone());
+                db.save_span(convert::span_from_proto(span).unwrap())
+                    .await
+                    .unwrap();
+            }
+        });
 
         Ok(tonic::Response::new(PostSpansResponse {}))
     }

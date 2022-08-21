@@ -1,9 +1,8 @@
 use anyhow::{bail, Result};
-use archer_proto::{
-    jaeger::api_v2::{KeyValue, Log, Process, Span, SpanRef, SpanRefType, ValueType},
-    prost_types::{Duration, Timestamp},
-};
 use archer_thrift::jaeger as thrift;
+use time::{Duration, OffsetDateTime};
+
+use crate::models::{Log, Process, RefType, Reference, Span, Tag, TagValue};
 
 pub fn span(span: thrift::Span, proc: Option<thrift::Process>) -> Result<Span> {
     let references = span.references.unwrap_or_default();
@@ -16,7 +15,7 @@ pub fn span(span: thrift::Span, proc: Option<thrift::Process>) -> Result<Span> {
 
     Ok(Span {
         trace_id: trace_id(span.trace_id_high, span.trace_id_low),
-        span_id: span.span_id.to_be_bytes().to_vec(),
+        span_id: span.span_id as _,
         operation_name: span.operation_name,
         references: parent
             .into_iter()
@@ -24,8 +23,8 @@ pub fn span(span: thrift::Span, proc: Option<thrift::Process>) -> Result<Span> {
             .map(span_ref)
             .collect::<Result<_>>()?,
         flags: span.flags as _,
-        start_time: Some(timestamp(span.start_time)),
-        duration: Some(duration(span.duration)),
+        start: timestamp(span.start_time)?,
+        duration: duration(span.duration),
         tags: span
             .tags
             .unwrap_or_default()
@@ -38,9 +37,7 @@ pub fn span(span: thrift::Span, proc: Option<thrift::Process>) -> Result<Span> {
             .into_iter()
             .map(log)
             .collect::<Result<_>>()?,
-        process: proc.map(process).transpose()?,
-        process_id: String::new(),
-        warnings: Vec::new(),
+        process: process(proc.unwrap())?,
     })
 }
 
@@ -65,59 +62,44 @@ fn parent_span_id(
     })
 }
 
-fn trace_id(high: i64, low: i64) -> Vec<u8> {
-    let mut buf = vec![0u8; 16];
-    (&mut buf[..8]).copy_from_slice(&high.to_be_bytes());
-    (&mut buf[8..]).copy_from_slice(&low.to_be_bytes());
-
-    buf
+fn trace_id(high: i64, low: i64) -> u128 {
+    (high as u64 as u128) << 64 | low as u64 as u128
 }
 
-fn span_ref(span_ref: thrift::SpanRef) -> Result<SpanRef> {
-    let ref_type = span_ref_type(span_ref.ref_type)?;
-
-    Ok(SpanRef {
+fn span_ref(span_ref: thrift::SpanRef) -> Result<Reference> {
+    Ok(Reference {
+        ty: span_ref_type(span_ref.ref_type)?,
         trace_id: trace_id(span_ref.trace_id_high, span_ref.trace_id_low),
-        span_id: span_ref.span_id.to_be_bytes().to_vec(),
-        ref_type: ref_type as _,
+        span_id: span_ref.span_id as _,
     })
 }
 
-fn span_ref_type(ty: thrift::SpanRefType) -> Result<SpanRefType> {
+fn span_ref_type(ty: thrift::SpanRefType) -> Result<RefType> {
     Ok(match ty {
-        thrift::SpanRefType::CHILD_OF => SpanRefType::ChildOf,
-        thrift::SpanRefType::FOLLOWS_FROM => SpanRefType::FollowsFrom,
+        thrift::SpanRefType::CHILD_OF => RefType::ChildOf,
+        thrift::SpanRefType::FOLLOWS_FROM => RefType::FollowsFrom,
         _ => bail!("invalid span reference type {ty:?}"),
     })
 }
 
 fn log(log: thrift::Log) -> Result<Log> {
     Ok(Log {
-        timestamp: Some(timestamp(log.timestamp)),
+        timestamp: timestamp(log.timestamp)?,
         fields: log.fields.into_iter().map(tag).collect::<Result<_>>()?,
     })
 }
 
-fn timestamp(microseconds: i64) -> Timestamp {
-    let (seconds, nanos) = micros(microseconds);
-    Timestamp { seconds, nanos }
+fn timestamp(microseconds: i64) -> Result<OffsetDateTime> {
+    OffsetDateTime::from_unix_timestamp_nanos(microseconds as i128 * 1000).map_err(Into::into)
 }
 
 fn duration(microseconds: i64) -> Duration {
-    let (seconds, nanos) = micros(microseconds);
-    Duration { seconds, nanos }
-}
-
-fn micros(micros: i64) -> (i64, i32) {
-    let seconds = micros / 1_000_000;
-    let nanos = 1000 * (micros % 1_000_000) as i32;
-
-    (seconds, nanos)
+    Duration::microseconds(microseconds)
 }
 
 fn process(process: thrift::Process) -> Result<Process> {
     Ok(Process {
-        service_name: process.service_name,
+        service: process.service_name,
         tags: process
             .tags
             .unwrap_or_default()
@@ -127,37 +109,27 @@ fn process(process: thrift::Process) -> Result<Process> {
     })
 }
 
-fn tag(tag: thrift::Tag) -> Result<KeyValue> {
+fn tag(tag: thrift::Tag) -> Result<Tag> {
     Ok(match tag.v_type {
-        thrift::TagType::BOOL => KeyValue {
+        thrift::TagType::BOOL => Tag {
             key: tag.key,
-            v_type: ValueType::Bool as _,
-            v_bool: tag.v_bool.unwrap_or_default(),
-            ..KeyValue::default()
+            value: TagValue::Bool(tag.v_bool.unwrap_or_default()),
         },
-        thrift::TagType::BINARY => KeyValue {
+        thrift::TagType::BINARY => Tag {
             key: tag.key,
-            v_type: ValueType::Binary as _,
-            v_binary: tag.v_binary.unwrap_or_default(),
-            ..KeyValue::default()
+            value: TagValue::Binary(tag.v_binary.unwrap_or_default()),
         },
-        thrift::TagType::DOUBLE => KeyValue {
+        thrift::TagType::DOUBLE => Tag {
             key: tag.key,
-            v_type: ValueType::Float64 as _,
-            v_float64: tag.v_double.unwrap_or_default().0,
-            ..KeyValue::default()
+            value: TagValue::F64(tag.v_double.unwrap_or_default().0),
         },
-        thrift::TagType::LONG => KeyValue {
+        thrift::TagType::LONG => Tag {
             key: tag.key,
-            v_type: ValueType::Int64 as _,
-            v_int64: tag.v_long.unwrap_or_default(),
-            ..KeyValue::default()
+            value: TagValue::I64(tag.v_long.unwrap_or_default()),
         },
-        thrift::TagType::STRING => KeyValue {
+        thrift::TagType::STRING => Tag {
             key: tag.key,
-            v_type: ValueType::String as _,
-            v_str: tag.v_str.unwrap_or_default(),
-            ..KeyValue::default()
+            value: TagValue::String(tag.v_str.unwrap_or_default()),
         },
         v => bail!("invalid tag type `{v:?}`"),
     })

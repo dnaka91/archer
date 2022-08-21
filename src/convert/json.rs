@@ -1,12 +1,11 @@
 use std::{collections::HashMap, time::UNIX_EPOCH};
 
 use archer_http as json;
-use archer_proto::{
-    jaeger::api_v2::{KeyValue, Log, Process, Span, SpanRef, SpanRefType, ValueType},
-    prost_types::{Duration, Timestamp},
-};
+use time::{Duration, OffsetDateTime};
 
-pub fn trace(trace_id: Vec<u8>, spans: impl IntoIterator<Item = Span>) -> json::Trace {
+use crate::models::{Log, Process, RefType, Reference, Span, Tag, TagValue};
+
+pub fn trace(trace_id: u128, spans: impl IntoIterator<Item = Span>) -> json::Trace {
     let mut processes = HashMap::new();
     let mut counter = 0;
 
@@ -15,7 +14,7 @@ pub fn trace(trace_id: Vec<u8>, spans: impl IntoIterator<Item = Span>) -> json::
         spans: spans
             .into_iter()
             .map(|mut s| {
-                let p = process(&mut processes, &mut counter, s.process.take().unwrap());
+                let p = process(&mut processes, &mut counter, std::mem::take(&mut s.process));
                 span(s, p)
             })
             .collect(),
@@ -32,8 +31,8 @@ fn span(span: Span, process_id: json::ProcessId) -> json::Span {
         flags: span.flags,
         operation_name: span.operation_name,
         references: span.references.into_iter().map(reference).collect(),
-        start_time: timestamp(span.start_time.unwrap()),
-        duration: duration(span.duration.unwrap()),
+        start_time: timestamp(span.start),
+        duration: duration(span.duration),
         tags: span.tags.into_iter().map(key_value).collect(),
         logs: span.logs.into_iter().map(log).collect(),
         process_id,
@@ -42,18 +41,18 @@ fn span(span: Span, process_id: json::ProcessId) -> json::Span {
     }
 }
 
-fn reference(span_ref: SpanRef) -> json::Reference {
+fn reference(span_ref: Reference) -> json::Reference {
     json::Reference {
-        ref_type: match span_ref.ref_type() {
-            SpanRefType::ChildOf => json::ReferenceType::ChildOf,
-            SpanRefType::FollowsFrom => json::ReferenceType::FollowsFrom,
+        ref_type: match span_ref.ty {
+            RefType::ChildOf => json::ReferenceType::ChildOf,
+            RefType::FollowsFrom => json::ReferenceType::FollowsFrom,
         },
         trace_id: span_ref.trace_id.into(),
         span_id: span_ref.span_id.into(),
     }
 }
 
-fn timestamp(timestamp: Timestamp) -> u64 {
+fn timestamp(timestamp: OffsetDateTime) -> u64 {
     std::time::SystemTime::try_from(timestamp)
         .unwrap()
         .duration_since(UNIX_EPOCH)
@@ -65,24 +64,22 @@ fn duration(duration: Duration) -> u64 {
     std::time::Duration::try_from(duration).unwrap().as_micros() as u64
 }
 
-fn key_value(kv: KeyValue) -> json::KeyValue {
-    let v_type = kv.v_type();
-
+fn key_value(kv: Tag) -> json::KeyValue {
     json::KeyValue {
         key: kv.key,
-        value: match v_type {
-            ValueType::String => json::Value::String(kv.v_str),
-            ValueType::Bool => json::Value::Bool(kv.v_bool),
-            ValueType::Int64 => json::Value::Int64(kv.v_int64),
-            ValueType::Float64 => json::Value::Float64(kv.v_float64),
-            ValueType::Binary => json::Value::Binary(kv.v_binary),
+        value: match kv.value {
+            TagValue::String(s) => json::Value::String(s),
+            TagValue::Bool(b) => json::Value::Bool(b),
+            TagValue::I64(i) => json::Value::Int64(i),
+            TagValue::F64(f) => json::Value::Float64(f),
+            TagValue::Binary(b) => json::Value::Binary(b),
         },
     }
 }
 
 fn log(log: Log) -> json::Log {
     json::Log {
-        timestamp: timestamp(log.timestamp.unwrap()),
+        timestamp: timestamp(log.timestamp),
         fields: log.fields.into_iter().map(key_value).collect(),
     }
 }
@@ -98,7 +95,7 @@ fn process(
     processes.insert(
         pid.clone(),
         json::Process {
-            service_name: process.service_name,
+            service_name: process.service,
             tags: process.tags.into_iter().map(key_value).collect(),
         },
     );

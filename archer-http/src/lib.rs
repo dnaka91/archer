@@ -2,7 +2,7 @@
 
 mod serde;
 
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, num::ParseIntError, str::FromStr};
 
 use ::serde::{Deserialize, Serialize};
 pub use axum;
@@ -98,37 +98,37 @@ pub struct ApiError {
 
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct TraceId(#[serde(with = "serde::hex")] pub Vec<u8>);
+pub struct TraceId(#[serde(with = "serde::hex")] pub u128);
 
-impl From<Vec<u8>> for TraceId {
-    fn from(value: Vec<u8>) -> Self {
+impl From<u128> for TraceId {
+    fn from(value: u128) -> Self {
         Self(value)
     }
 }
 
-impl TryFrom<&str> for TraceId {
-    type Error = hex::FromHexError;
+impl FromStr for TraceId {
+    type Err = ParseIntError;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        hex::decode(value).map(Self)
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        u128::from_str_radix(s, 16).map(Self)
     }
 }
 
 #[derive(Serialize)]
 #[serde(transparent)]
-pub struct SpanId(#[serde(with = "serde::hex")] pub Vec<u8>);
+pub struct SpanId(#[serde(with = "serde::hex")] pub u64);
 
-impl From<Vec<u8>> for SpanId {
-    fn from(value: Vec<u8>) -> Self {
+impl From<u64> for SpanId {
+    fn from(value: u64) -> Self {
         Self(value)
     }
 }
 
-impl TryFrom<&str> for SpanId {
-    type Error = hex::FromHexError;
+impl FromStr for SpanId {
+    type Err = ParseIntError;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        hex::decode(value).map(Self)
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        u64::from_str_radix(s, 16).map(Self)
     }
 }
 
