@@ -61,7 +61,7 @@ pub struct Process {
     pub tags: Vec<Tag>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TraceId(NonZeroU128);
 
@@ -78,6 +78,18 @@ impl TraceId {
 impl From<NonZeroU128> for TraceId {
     fn from(value: NonZeroU128) -> Self {
         Self(value)
+    }
+}
+
+impl TryFrom<[u8; mem::size_of::<TraceId>()]> for TraceId {
+    type Error = anyhow::Error;
+
+    fn try_from(value: [u8; mem::size_of::<TraceId>()]) -> Result<Self, Self::Error> {
+        let value = u128::from_be_bytes(value);
+
+        Ok(Self(
+            NonZeroU128::new(value).context("trace ID mustn't be empty")?,
+        ))
     }
 }
 
@@ -126,6 +138,18 @@ impl SpanId {
 impl From<NonZeroU64> for SpanId {
     fn from(value: NonZeroU64) -> Self {
         Self(value)
+    }
+}
+
+impl TryFrom<[u8; mem::size_of::<SpanId>()]> for SpanId {
+    type Error = anyhow::Error;
+
+    fn try_from(value: [u8; mem::size_of::<SpanId>()]) -> Result<Self, Self::Error> {
+        let value = u64::from_be_bytes(value);
+
+        Ok(Self(
+            NonZeroU64::new(value).context("span ID mustn't be empty")?,
+        ))
     }
 }
 

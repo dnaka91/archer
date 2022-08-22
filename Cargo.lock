@@ -50,7 +50,6 @@ dependencies = [
  "deadpool",
  "deadpool-sqlite",
  "deadpool-sync",
- "itertools",
  "mime",
  "mime_guess",
  "opentelemetry-semantic-conventions",

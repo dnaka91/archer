@@ -22,7 +22,6 @@ use archer_http::{
     tower_http::ServiceBuilderExt,
     ApiError, ApiResponse, TraceId,
 };
-use itertools::Itertools;
 use serde::Deserialize;
 use tokio_shutdown::Shutdown;
 use tracing::{info, instrument};
@@ -182,10 +181,8 @@ async fn traces(
 
     let traces = spans
         .into_iter()
-        .group_by(|span| span.trace_id)
-        .into_iter()
         .map(|(trace_id, spans)| convert::trace_to_json(trace_id, spans))
-        .collect::<Vec<_>>();
+        .collect();
 
     ApiResponse::Data(traces)
 }
