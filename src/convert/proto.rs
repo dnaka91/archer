@@ -1,8 +1,10 @@
+use std::num::{NonZeroU128, NonZeroU64};
+
 use anyhow::{Context, Result};
 use archer_proto::{jaeger::api_v2 as proto, prost_types};
 use time::{Duration, OffsetDateTime};
 
-use crate::models::{Log, Process, RefType, Reference, Span, Tag, TagValue};
+use crate::models::{Log, Process, RefType, Reference, Span, SpanId, Tag, TagValue, TraceId};
 
 pub fn span(span: proto::Span) -> Result<Span> {
     Ok(Span {
@@ -19,16 +21,32 @@ pub fn span(span: proto::Span) -> Result<Span> {
     })
 }
 
-fn trace_id(id: Vec<u8>) -> u128 {
+fn trace_id(id: Vec<u8>) -> TraceId {
     let mut buf = [0; 16];
     buf.copy_from_slice(&id);
-    u128::from_be_bytes(buf)
+
+    let mut id = NonZeroU128::new(u128::from_be_bytes(buf));
+
+    loop {
+        match id {
+            Some(id) => break id.into(),
+            None => id = NonZeroU128::new(rand::random()),
+        }
+    }
 }
 
-fn span_id(id: Vec<u8>) -> u64 {
+fn span_id(id: Vec<u8>) -> SpanId {
     let mut buf = [0; 8];
     buf.copy_from_slice(&id);
-    u64::from_be_bytes(buf)
+
+    let mut id = NonZeroU64::new(u64::from_be_bytes(buf));
+
+    loop {
+        match id {
+            Some(id) => break id.into(),
+            None => id = NonZeroU64::new(rand::random()),
+        }
+    }
 }
 
 fn reference(span_ref: proto::SpanRef) -> Reference {

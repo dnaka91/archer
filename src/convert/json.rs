@@ -3,14 +3,14 @@ use std::collections::HashMap;
 use archer_http as json;
 use time::{Duration, OffsetDateTime};
 
-use crate::models::{Log, Process, RefType, Reference, Span, Tag, TagValue};
+use crate::models::{Log, Process, RefType, Reference, Span, Tag, TagValue, TraceId};
 
-pub fn trace(trace_id: u128, spans: impl IntoIterator<Item = Span>) -> json::Trace {
+pub fn trace(trace_id: TraceId, spans: impl IntoIterator<Item = Span>) -> json::Trace {
     let mut processes = HashMap::new();
     let mut counter = 0;
 
     json::Trace {
-        trace_id: trace_id.into(),
+        trace_id: trace_id.get().into(),
         spans: spans
             .into_iter()
             .map(|mut s| {
@@ -25,8 +25,8 @@ pub fn trace(trace_id: u128, spans: impl IntoIterator<Item = Span>) -> json::Tra
 
 fn span(span: Span, process_id: json::ProcessId) -> json::Span {
     json::Span {
-        trace_id: span.trace_id.into(),
-        span_id: span.span_id.into(),
+        trace_id: span.trace_id.get().into(),
+        span_id: span.span_id.get().into(),
         parent_span_id: None,
         flags: span.flags,
         operation_name: span.operation_name,
@@ -47,8 +47,8 @@ fn reference(span_ref: Reference) -> json::Reference {
             RefType::ChildOf => json::ReferenceType::ChildOf,
             RefType::FollowsFrom => json::ReferenceType::FollowsFrom,
         },
-        trace_id: span_ref.trace_id.into(),
-        span_id: span_ref.span_id.into(),
+        trace_id: span_ref.trace_id.get().into(),
+        span_id: span_ref.span_id.get().into(),
     }
 }
 

@@ -1,8 +1,10 @@
+use std::num::{NonZeroU128, NonZeroU64};
+
 use anyhow::{bail, Context, Result};
 use archer_thrift::jaeger as thrift;
 use time::{Duration, OffsetDateTime};
 
-use crate::models::{Log, Process, RefType, Reference, Span, Tag, TagValue};
+use crate::models::{Log, Process, RefType, Reference, Span, SpanId, Tag, TagValue, TraceId};
 
 pub fn span(span: thrift::Span, proc: Option<thrift::Process>) -> Result<Span> {
     let references = span.references.unwrap_or_default();
@@ -15,7 +17,7 @@ pub fn span(span: thrift::Span, proc: Option<thrift::Process>) -> Result<Span> {
 
     Ok(Span {
         trace_id: trace_id(span.trace_id_high, span.trace_id_low),
-        span_id: span.span_id as _,
+        span_id: span_id(span.span_id),
         operation_name: span.operation_name,
         references: parent
             .into_iter()
@@ -62,15 +64,33 @@ fn parent_span_id(
     })
 }
 
-fn trace_id(high: i64, low: i64) -> u128 {
-    (high as u64 as u128) << 64 | low as u64 as u128
+fn trace_id(high: i64, low: i64) -> TraceId {
+    let mut id = NonZeroU128::new((high as u64 as u128) << 64 | low as u64 as u128);
+
+    loop {
+        match id {
+            Some(id) => break id.into(),
+            None => id = NonZeroU128::new(rand::random()),
+        }
+    }
+}
+
+fn span_id(id: i64) -> SpanId {
+    let mut id = NonZeroU64::new(id as _);
+
+    loop {
+        match id {
+            Some(id) => break id.into(),
+            None => id = NonZeroU64::new(rand::random()),
+        }
+    }
 }
 
 fn span_ref(span_ref: thrift::SpanRef) -> Result<Reference> {
     Ok(Reference {
         ty: span_ref_type(span_ref.ref_type)?,
         trace_id: trace_id(span_ref.trace_id_high, span_ref.trace_id_low),
-        span_id: span_ref.span_id as _,
+        span_id: span_id(span_ref.span_id),
     })
 }
 

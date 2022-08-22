@@ -2,7 +2,12 @@
 
 mod serde;
 
-use std::{borrow::Cow, collections::HashMap, num::ParseIntError, str::FromStr};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    num::{NonZeroU128, NonZeroU64, ParseIntError},
+    str::FromStr,
+};
 
 use ::serde::{Deserialize, Serialize};
 pub use axum;
@@ -96,13 +101,19 @@ pub struct ApiError {
     pub trace_id: Option<TraceId>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TraceId(#[serde(with = "serde::hex")] pub u128);
 
 impl From<u128> for TraceId {
     fn from(value: u128) -> Self {
         Self(value)
+    }
+}
+
+impl From<NonZeroU128> for TraceId {
+    fn from(value: NonZeroU128) -> Self {
+        Self(value.get())
     }
 }
 
@@ -114,13 +125,19 @@ impl FromStr for TraceId {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct SpanId(#[serde(with = "serde::hex")] pub u64);
 
 impl From<u64> for SpanId {
     fn from(value: u64) -> Self {
         Self(value)
+    }
+}
+
+impl From<NonZeroU64> for SpanId {
+    fn from(value: NonZeroU64) -> Self {
+        Self(value.get())
     }
 }
 

@@ -6,7 +6,7 @@ use deadpool_sqlite::{Config, Manager, Runtime};
 use deadpool_sync::SyncWrapper;
 use rusqlite::{params, Connection};
 
-use crate::models::Span;
+use crate::models::{Span, TraceId};
 
 #[derive(Clone)]
 pub struct Database(Arc<Pool<Manager>>);
@@ -15,6 +15,7 @@ pub async fn init() -> Result<Database> {
     let pool = Config::new("db.sqlite3")
         .builder(Runtime::Tokio1)?
         .post_create(async_fn(|conn: &mut Connection| {
+            rusqlite::vtab::array::load_module(conn)?;
             conn.execute_batch(
                 "
                 PRAGMA journal_mode = wal;
@@ -79,7 +80,7 @@ impl Database {
             conn.execute(
                 include_str!("queries/save_span.sql"),
                 params![
-                    span.trace_id.to_be_bytes(),
+                    span.trace_id.to_bytes(),
                     &span.process.service,
                     &span.operation_name,
                     buf,
@@ -137,6 +138,31 @@ impl Database {
             .interact(move |conn| {
                 conn.prepare(include_str!("queries/find_trace.sql"))?
                     .query_map([trace_id.to_be_bytes()], |row| row.get::<_, Vec<u8>>(0))?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .await?;
+
+        spans
+            .into_iter()
+            .map(|span| {
+                let span = zstd::decode_all(&*span)?;
+                let span = postcard::from_bytes(&span)?;
+                anyhow::Ok(span)
+            })
+            .collect::<Result<Vec<_>>>()
+    }
+
+    pub async fn find_traces(&self, trace_ids: impl Iterator<Item = TraceId>) -> Result<Vec<Span>> {
+        use std::rc::Rc;
+
+        use rusqlite::types::Value;
+
+        let trace_ids = trace_ids.map(Into::into).collect::<Vec<Value>>();
+
+        let spans = self
+            .interact(move |conn| {
+                conn.prepare(include_str!("queries/find_traces.sql"))?
+                    .query_map([Rc::new(trace_ids)], |row| row.get::<_, Vec<u8>>(0))?
                     .collect::<Result<Vec<_>, _>>()
             })
             .await?;

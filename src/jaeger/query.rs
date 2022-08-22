@@ -1,4 +1,9 @@
-use std::net::{Ipv4Addr, SocketAddr};
+use std::{
+    borrow::Cow,
+    fmt,
+    net::{Ipv4Addr, SocketAddr},
+    num::NonZeroU128,
+};
 
 use anyhow::Result;
 use archer_http::{
@@ -69,24 +74,114 @@ async fn operations(
     ApiResponse::Data(db.list_operations(service).await.unwrap())
 }
 
+#[cfg_attr(test, derive(Debug, PartialEq))]
 #[derive(Deserialize)]
-struct TracesParams {
+#[serde(untagged)]
+enum TracesParams {
+    TraceIds(TraceIdsQuery),
+    Query(TracesQuery),
+}
+
+#[cfg_attr(test, derive(Debug, PartialEq))]
+struct TraceIdsQuery(Vec<TraceId>);
+
+impl<'de> Deserialize<'de> for TraceIdsQuery {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct Visitor;
+
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = TraceIdsQuery;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("trace IDs as map with all keys having the same value")
+            }
+
+            fn visit_map<A>(self, mut access: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let mut ids = Vec::new();
+
+                while let Some((k, v)) = access.next_entry::<Cow<'_, str>, Cow<'_, str>>()? {
+                    if k != "traceID" {
+                        return Err(serde::de::Error::custom("unknown key"));
+                    }
+
+                    ids.push(v.parse().map_err(serde::de::Error::custom)?);
+                }
+
+                Ok(TraceIdsQuery(ids))
+            }
+        }
+
+        deserializer.deserialize_map(Visitor)
+    }
+}
+
+#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Deserialize)]
+struct TracesQuery {
     service: String,
     operation: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn deser_trace_ids() {
+        let expect = TracesParams::TraceIds(TraceIdsQuery(vec![TraceId(5), TraceId(6)]));
+        let result = serde_urlencoded::from_str(&format!("traceID={:032x}&traceID={:032x}", 5, 6));
+
+        assert_eq!(expect, result.unwrap());
+    }
+
+    #[test]
+    fn deser_query() {
+        let expect = TracesParams::Query(TracesQuery {
+            service: "test".to_owned(),
+            operation: None,
+        });
+        let result = serde_urlencoded::from_str("service=test");
+
+        assert_eq!(expect, result.unwrap());
+    }
 }
 
 async fn traces(
     Query(params): Query<TracesParams>,
     Extension(db): Extension<Database>,
 ) -> impl IntoResponse {
-    let spans = db
-        .list_spans(params.service.clone(), params.operation)
-        .await
-        .unwrap();
+    let spans = match params {
+        TracesParams::TraceIds(ids) => {
+            let spans = db
+                .find_traces(
+                    ids.0
+                        .iter()
+                        .map(|id| NonZeroU128::new(id.0).unwrap().into()),
+                )
+                .await
+                .unwrap();
+
+            if spans.is_empty() {
+                return ApiResponse::Error(ApiError {
+                    code: StatusCode::NOT_FOUND,
+                    msg: "trace id not found".into(),
+                    trace_id: ids.0.get(0).copied(),
+                });
+            }
+
+            spans
+        }
+        TracesParams::Query(query) => db.list_spans(query.service, query.operation).await.unwrap(),
+    };
 
     let traces = spans
         .into_iter()
-        .sorted_by_key(|span| span.trace_id)
         .group_by(|span| span.trace_id)
         .into_iter()
         .map(|(trace_id, spans)| convert::trace_to_json(trace_id, spans))
@@ -100,15 +195,16 @@ async fn trace(
     Extension(db): Extension<Database>,
 ) -> impl IntoResponse {
     let spans = db.find_trace(trace_id).await.unwrap();
-    if spans.is_empty() {
-        return ApiResponse::Error(ApiError {
-            code: StatusCode::NOT_FOUND,
-            msg: "trace ID not found".into(),
-            trace_id: None,
-        });
-    }
-
-    let trace = convert::trace_to_json(trace_id, spans);
+    let trace = match spans.get(0) {
+        Some(span) => convert::trace_to_json(span.trace_id, spans),
+        None => {
+            return ApiResponse::Error(ApiError {
+                code: StatusCode::NOT_FOUND,
+                msg: "trace ID not found".into(),
+                trace_id: None,
+            })
+        }
+    };
 
     ApiResponse::Data(vec![trace])
 }

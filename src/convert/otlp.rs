@@ -1,3 +1,5 @@
+use std::num::{NonZeroU128, NonZeroU64};
+
 use anyhow::Result;
 use archer_proto::opentelemetry::proto::{
     common::v1 as otlp_common, resource::v1 as otlp_res, trace::v1 as otlp,
@@ -5,7 +7,7 @@ use archer_proto::opentelemetry::proto::{
 use opentelemetry_semantic_conventions::resource;
 use time::OffsetDateTime;
 
-use crate::models::{Log, Process, RefType, Reference, Span, Tag, TagValue};
+use crate::models::{Log, Process, RefType, Reference, Span, SpanId, Tag, TagValue, TraceId};
 
 pub fn span(res_spans: otlp::ResourceSpans) -> Result<Vec<Span>> {
     let resource = res_spans.resource.unwrap_or_default();
@@ -120,7 +122,6 @@ fn span2(
     process: Process,
 ) -> Result<Span> {
     let trace_id = trace_id(&span.trace_id);
-    let parent_span_id = span_id(&span.parent_span_id);
     let start = timestamp(span.start_time_unix_nano)?;
     let end = timestamp(span.end_time_unix_nano)?;
     let kind = span.kind();
@@ -131,11 +132,11 @@ fn span2(
         span_id: span_id(&span.span_id),
         operation_name: span.name,
         flags: 1,
-        references: (parent_span_id != 0)
+        references: (span.parent_span_id.iter().copied().any(|v| v != 0))
             .then(|| Reference {
                 ty: RefType::ChildOf,
                 trace_id,
-                span_id: parent_span_id,
+                span_id: span_id(&span.parent_span_id),
             })
             .into_iter()
             .chain(span.links.into_iter().map(link))
@@ -159,24 +160,38 @@ fn span2(
     })
 }
 
-fn trace_id(id: &[u8]) -> u128 {
-    if id.len() != 16 {
-        return 0;
-    }
+fn trace_id(id: &[u8]) -> TraceId {
+    let mut id = (id.len() == 16)
+        .then(|| {
+            let mut buf = [0; 16];
+            buf.copy_from_slice(id);
+            NonZeroU128::new(u128::from_be_bytes(buf))
+        })
+        .flatten();
 
-    let mut buf = [0; 16];
-    buf.copy_from_slice(id);
-    u128::from_be_bytes(buf)
+    loop {
+        match id {
+            Some(id) => break id.into(),
+            None => id = NonZeroU128::new(rand::random()),
+        }
+    }
 }
 
-fn span_id(id: &[u8]) -> u64 {
-    if id.len() != 8 {
-        return 0;
-    }
+fn span_id(id: &[u8]) -> SpanId {
+    let mut id = (id.len() == 8)
+        .then(|| {
+            let mut buf = [0; 8];
+            buf.copy_from_slice(id);
+            NonZeroU64::new(u64::from_be_bytes(buf))
+        })
+        .flatten();
 
-    let mut buf = [0; 8];
-    buf.copy_from_slice(id);
-    u64::from_be_bytes(buf)
+    loop {
+        match id {
+            Some(id) => break id.into(),
+            None => id = NonZeroU64::new(rand::random()),
+        }
+    }
 }
 
 fn timestamp(timestamp: u64) -> Result<OffsetDateTime> {
