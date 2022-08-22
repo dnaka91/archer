@@ -133,11 +133,11 @@ impl Database {
             .collect::<Result<Vec<_>>>()
     }
 
-    pub async fn find_trace(&self, trace_id: u128) -> Result<Vec<Span>> {
+    pub async fn find_trace(&self, trace_id: TraceId) -> Result<Vec<Span>> {
         let spans = self
             .interact(move |conn| {
                 conn.prepare(include_str!("queries/find_trace.sql"))?
-                    .query_map([trace_id.to_be_bytes()], |row| row.get::<_, Vec<u8>>(0))?
+                    .query_map([trace_id.to_bytes()], |row| row.get::<_, Vec<u8>>(0))?
                     .collect::<Result<Vec<_>, _>>()
             })
             .await?;

@@ -191,10 +191,13 @@ async fn traces(
 }
 
 async fn trace(
-    Path(TraceId(trace_id)): Path<TraceId>,
+    Path(trace_id): Path<TraceId>,
     Extension(db): Extension<Database>,
 ) -> impl IntoResponse {
-    let spans = db.find_trace(trace_id).await.unwrap();
+    let spans = db
+        .find_trace(NonZeroU128::new(trace_id.0).unwrap().into())
+        .await
+        .unwrap();
     let trace = match spans.get(0) {
         Some(span) => convert::trace_to_json(span.trace_id, spans),
         None => {
