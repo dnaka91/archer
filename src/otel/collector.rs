@@ -27,7 +27,7 @@ use mime::Mime;
 use tokio_shutdown::Shutdown;
 use tracing::{info, instrument};
 
-use crate::storage::Database;
+use crate::{convert, storage::Database};
 
 #[instrument(name = "otlp", skip_all)]
 pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
@@ -81,6 +81,14 @@ async fn traces(
     Protobuf(trace): Protobuf<ExportTraceServiceRequest>,
     Extension(db): Extension<Database>,
 ) -> impl IntoResponse {
+    tokio::spawn(async move {
+        for spans in trace.resource_spans {
+            for span in convert::span_from_otlp(spans).unwrap() {
+                db.save_span(span).await.unwrap();
+            }
+        }
+    });
+
     Protobuf(ExportTraceServiceResponse {
         partial_success: None,
     })
@@ -198,8 +206,15 @@ impl trace_service_server::TraceService for TraceService {
         request: tonic::Request<ExportTraceServiceRequest>,
     ) -> Result<tonic::Response<ExportTraceServiceResponse>, tonic::Status> {
         let ExportTraceServiceRequest { resource_spans } = request.into_inner();
+        let db = self.0.clone();
 
-        tokio::spawn(async { for span in resource_spans {} });
+        tokio::spawn(async move {
+            for spans in resource_spans {
+                for span in convert::span_from_otlp(spans).unwrap() {
+                    db.save_span(span).await.unwrap();
+                }
+            }
+        });
 
         Ok(tonic::Response::new(ExportTraceServiceResponse {
             partial_success: None,

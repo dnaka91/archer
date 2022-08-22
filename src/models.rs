@@ -28,13 +28,13 @@ pub enum RefType {
     FollowsFrom,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Tag {
     pub key: String,
     pub value: TagValue,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum TagValue {
     String(String),
     Bool(bool),
@@ -49,7 +49,7 @@ pub struct Log {
     pub fields: Vec<Tag>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Process {
     pub service: String,
     pub tags: Vec<Tag>,
