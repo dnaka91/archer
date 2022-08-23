@@ -101,6 +101,12 @@ pub struct ApiError {
     pub trace_id: Option<TraceId>,
 }
 
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        Json(ApiResponse::<()>::Error(self)).into_response()
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TraceId(#[serde(with = "serde::hex")] pub u128);

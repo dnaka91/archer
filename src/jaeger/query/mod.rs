@@ -4,7 +4,7 @@ use std::{
     num::NonZeroU128,
 };
 
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use archer_http::{
     axum::{
         extract::{rejection::QueryRejection, Path, Query},
@@ -22,11 +22,14 @@ use archer_http::{
     ApiError, ApiResponse, TraceId,
 };
 use serde::Deserialize;
-use time::Duration;
+use time::{Duration, OffsetDateTime};
 use tokio_shutdown::Shutdown;
 use tracing::{info, instrument};
 
-use crate::{convert, storage::Database};
+use crate::{
+    convert,
+    storage::{Database, ListSpansParams},
+};
 
 mod de;
 
@@ -80,7 +83,8 @@ async fn operations(
 #[serde(rename_all = "camelCase")]
 struct TracesQuery {
     service: String,
-    operation: Option<String>,
+    #[serde(default)]
+    operation: String,
     #[serde(default, deserialize_with = "de::duration_micros")]
     start: Option<Duration>,
     #[serde(default, deserialize_with = "de::duration_micros")]
@@ -95,6 +99,39 @@ struct TracesQuery {
     tags: HashMap<String, String>,
 }
 
+impl TracesQuery {
+    fn into_db(self) -> Result<ListSpansParams> {
+        ensure!(!self.service.is_empty(), "service name must be specified");
+
+        let now = OffsetDateTime::now_utc();
+        let start = self
+            .start
+            .map(|start| OffsetDateTime::UNIX_EPOCH + start)
+            .unwrap_or(now - Duration::hours(48));
+        let end = self
+            .end
+            .map(|end| OffsetDateTime::UNIX_EPOCH + end)
+            .unwrap_or(now);
+
+        ensure!(start < end, "start must be before end");
+
+        if let (Some(min), Some(max)) = (self.min_duration, self.max_duration) {
+            ensure!(min < max, " minimum duration must be smaller than maximum");
+        }
+
+        Ok(ListSpansParams {
+            service: self.service,
+            operation: (!self.operation.is_empty()).then_some(self.operation),
+            start,
+            end,
+            duration_min: self.min_duration,
+            duration_max: self.max_duration,
+            limit: self.limit.unwrap_or(20) as _,
+            tags: self.tags,
+        })
+    }
+}
+
 #[cfg_attr(test, derive(Debug, PartialEq))]
 #[derive(Deserialize)]
 #[serde(transparent)]
@@ -106,7 +143,14 @@ async fn traces(
     Extension(db): Extension<Database>,
 ) -> impl IntoResponse {
     let spans = match (query, trace_ids) {
-        (Ok(Query(query)), Err(_)) => db.list_spans(query.service, query.operation).await.unwrap(),
+        (Ok(Query(query)), Err(_)) => {
+            let params = query.into_db().map_err(|e| ApiError {
+                code: StatusCode::BAD_REQUEST,
+                msg: e.to_string().into(),
+                trace_id: None,
+            })?;
+            db.list_spans(params).await.unwrap()
+        }
         (Err(_), Ok(Query(ids))) => {
             let spans = db
                 .find_traces(
@@ -118,7 +162,7 @@ async fn traces(
                 .unwrap();
 
             if spans.is_empty() {
-                return ApiResponse::Error(ApiError {
+                return Err(ApiError {
                     code: StatusCode::NOT_FOUND,
                     msg: "trace id not found".into(),
                     trace_id: ids.0.get(0).copied(),
@@ -128,14 +172,14 @@ async fn traces(
             spans
         }
         (Ok(_), Ok(_)) => {
-            return ApiResponse::Error(ApiError {
+            return Err(ApiError {
                 code: StatusCode::BAD_REQUEST,
                 msg: "can't search by trace IDs and query at the same time".into(),
                 trace_id: None,
             });
         }
         (Err(e), Err(_)) => {
-            return ApiResponse::Error(ApiError {
+            return Err(ApiError {
                 code: StatusCode::BAD_REQUEST,
                 msg: e.to_string().into(),
                 trace_id: None,
@@ -148,7 +192,7 @@ async fn traces(
         .map(|(trace_id, spans)| convert::trace_to_json(trace_id, spans))
         .collect();
 
-    ApiResponse::Data(traces)
+    Ok(ApiResponse::Data(traces))
 }
 
 async fn trace(
@@ -299,7 +343,7 @@ mod tests {
     fn deser_query_all() {
         let expect = TracesQuery {
             service: "test".to_owned(),
-            operation: Some("op1".to_owned()),
+            operation: "op1".to_owned(),
             start: Some(Duration::microseconds(1661232631416000)),
             end: Some(Duration::microseconds(1661236231416000)),
             limit: Some(20),
