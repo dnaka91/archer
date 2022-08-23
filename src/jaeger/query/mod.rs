@@ -50,6 +50,7 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
         .fallback(get(asset))
         .layer(
             ServiceBuilder::new()
+                .compression()
                 .trace_for_http()
                 .layer(Extension(database)),
         );

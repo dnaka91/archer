@@ -20,7 +20,7 @@ use archer_proto::{
         ExportTraceServiceRequest, ExportTraceServiceResponse,
     },
     prost::{DecodeError, Message},
-    tonic,
+    tonic::{self, codegen::CompressionEncoding},
 };
 use bytes::BytesMut;
 use mime::Mime;
@@ -63,6 +63,7 @@ async fn run_http(
 
     let app = Router::new().route("/v1/traces", post(traces)).layer(
         ServiceBuilder::new()
+            .compression()
             .trace_for_http()
             .layer(Extension(database)),
     );
@@ -188,7 +189,11 @@ async fn run_grpc(
 
     tonic::transport::Server::builder()
         .layer(ServiceBuilder::new().trace_for_grpc())
-        .add_service(TraceServiceServer::new(TraceService(database)))
+        .add_service(
+            TraceServiceServer::new(TraceService(database))
+                .accept_compressed(CompressionEncoding::Gzip)
+                .send_compressed(CompressionEncoding::Gzip),
+        )
         .serve_with_shutdown(addr, shutdown.handle())
         .await?;
 

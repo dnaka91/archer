@@ -23,7 +23,7 @@ use archer_proto::{
         collector_service_server::{self, CollectorServiceServer},
         PostSpansRequest, PostSpansResponse,
     },
-    tonic,
+    tonic::{self, codegen::CompressionEncoding},
 };
 use archer_thrift::{jaeger::Batch, thrift::protocol::TBinaryInputProtocol};
 use tokio_shutdown::Shutdown;
@@ -65,6 +65,7 @@ async fn run_http(
 
     let app = Router::new().route("/api/traces", post(traces)).layer(
         ServiceBuilder::new()
+            .compression()
             .trace_for_http()
             .layer(Extension(database)),
     );
@@ -146,7 +147,11 @@ async fn run_grpc(
 
     tonic::transport::Server::builder()
         .layer(ServiceBuilder::new().trace_for_grpc())
-        .add_service(CollectorServiceServer::new(CollectorService(database)))
+        .add_service(
+            CollectorServiceServer::new(CollectorService(database))
+                .accept_compressed(CompressionEncoding::Gzip)
+                .send_compressed(CompressionEncoding::Gzip),
+        )
         .serve_with_shutdown(addr, shutdown.handle())
         .await?;
 
