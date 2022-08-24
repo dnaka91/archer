@@ -56,6 +56,7 @@ dependencies = [
  "deadpool",
  "deadpool-sqlite",
  "deadpool-sync",
+ "futures-util",
  "hex",
  "mime",
  "mime_guess",
@@ -74,6 +75,7 @@ dependencies = [
  "time",
  "tokio",
  "tokio-shutdown",
+ "tokio-util",
  "tracing",
  "tracing-subscriber",
  "walkdir",
@@ -433,6 +435,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "futures-macro"
+version = "0.3.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0db9cce532b0eae2ccf2766ab246f114b56b9cf6d445e00c2549fbc100ca045d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "futures-sink"
 version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -451,6 +464,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0828a5471e340229c11c77ca80017937ce3c58cb788a17e5f1c2d5c485a9577"
 dependencies = [
  "futures-core",
+ "futures-macro",
  "futures-sink",
  "futures-task",
  "pin-project-lite",

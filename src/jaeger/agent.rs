@@ -1,4 +1,7 @@
-use std::net::{Ipv4Addr, SocketAddr};
+use std::{
+    net::{Ipv4Addr, SocketAddr},
+    time::Instant,
+};
 
 use anyhow::Result;
 use archer_thrift::{
@@ -14,9 +17,12 @@ use archer_thrift::{
     },
     zipkincore,
 };
+use bytes::BytesMut;
+use futures_util::{SinkExt, StreamExt};
 use tokio::net::UdpSocket;
 use tokio_shutdown::Shutdown;
-use tracing::{error, info, instrument, Span};
+use tokio_util::{codec::BytesCodec, udp::UdpFramed};
+use tracing::{debug_span, error, info, instrument, Span};
 
 use crate::{convert, storage::Database};
 
@@ -95,32 +101,46 @@ async fn run_udp_server(
     socket: UdpSocket,
     process: impl Fn(&AgentSyncProcessor<Handler>, &[u8], &mut [u8]) -> Result<(), thrift::Error>,
 ) {
-    let mut buf_in = vec![0u8; 65_000];
-    let mut buf_out = vec![0u8; 65_000];
-
+    let mut framed = UdpFramed::new(socket, BytesCodec::new());
+    let mut output = BytesMut::new();
     let processor = AgentSyncProcessor::new(Handler(database));
 
     loop {
-        let (len, addr) = tokio::select! {
+        let (frame, addr) = tokio::select! {
             _ = shutdown.handle() => break,
-            res = socket.recv_from(&mut buf_in) => match res {
-                Ok(res) => res,
-                Err(err) => {
+            res = framed.next() => match res {
+                Some(Ok(res)) => res,
+                Some(Err(err)) => {
                     error!(error = ?err, "failed receiving data");
                     continue;
                 }
+                None => break,
             },
         };
 
-        buf_out.clear();
+        let success = debug_span!("request").in_scope(|| {
+            let now = Instant::now();
+            tracing::debug!("started processing request");
 
-        if let Err(err) = (process)(&processor, &buf_in[..len], &mut buf_out) {
-            error!(error = ?err, "failed to process request");
+            if let Err(err) = (process)(&processor, &frame, &mut output) {
+                error!(error = ?err, "failed to process request");
+                return false;
+            }
+
+            let latency = format!("{} ms", now.elapsed().as_millis());
+            tracing::debug!(%latency, "finished processing request");
+
+            true
+        });
+
+        if !success {
             continue;
         }
 
-        if !buf_out.is_empty() {
-            if let Err(err) = socket.send_to(&buf_out, addr).await {
+        let output = output.split().freeze();
+
+        if !output.is_empty() {
+            if let Err(err) = framed.send((output, addr)).await {
                 error!(error = ?err, "failed to send back response");
             }
         }
@@ -137,12 +157,15 @@ impl AgentSyncHandler for Handler {
     #[instrument(skip_all)]
     fn handle_emit_batch(&self, batch: jaeger::Batch) -> thrift::Result<()> {
         let db = self.0.clone();
+        let spans = batch
+            .spans
+            .into_iter()
+            .map(|span| convert::span_from_thrift(span, Some(batch.process.clone())).unwrap())
+            .collect::<Vec<_>>();
 
         tokio::spawn(async move {
-            for span in batch.spans {
-                db.save_span(convert::span_from_thrift(span, Some(batch.process.clone())).unwrap())
-                    .await
-                    .unwrap();
+            for span in spans {
+                db.save_span(span).await.unwrap();
             }
         });
 
