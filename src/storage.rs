@@ -6,6 +6,7 @@ use deadpool_sqlite::{Config, Manager, Runtime};
 use deadpool_sync::SyncWrapper;
 use rusqlite::{named_params, params, types::Value, Connection};
 use time::{Duration, OffsetDateTime};
+use tracing::instrument;
 
 use crate::models::{Span, TagValue, TraceId};
 
@@ -78,12 +79,7 @@ impl Database {
         let trace_info = TraceInfo::from_spans(&spans);
         let spans = spans
             .into_iter()
-            .map(|span| {
-                let buf = postcard::to_stdvec(&span)?;
-                let buf = zstd::encode_all(&*buf, 11)?;
-
-                Ok((span, buf))
-            })
+            .map(|span| encode_span(&span).map(|buf| (span, buf)))
             .collect::<Result<Vec<_>>>()?;
 
         self.interact(move |conn| {
@@ -117,6 +113,7 @@ impl Database {
         .await
     }
 
+    #[instrument(skip_all)]
     pub async fn list_services(&self) -> Result<Vec<String>> {
         self.interact(|conn| {
             conn.prepare(include_str!("queries/list_services.sql"))?
@@ -126,6 +123,7 @@ impl Database {
         .await
     }
 
+    #[instrument(skip_all)]
     pub async fn list_operations(&self, service: String) -> Result<Vec<String>> {
         self.interact(|conn| {
             conn.prepare(include_str!("queries/list_operations.sql"))?
@@ -135,6 +133,7 @@ impl Database {
         .await
     }
 
+    #[instrument(skip_all)]
     pub async fn list_spans(&self, params: ListSpansParams) -> Result<HashMap<TraceId, Vec<Span>>> {
         let trace_ids = self
             .interact(move |conn| {
@@ -173,6 +172,7 @@ impl Database {
         .context("failed listing spans")
     }
 
+    #[instrument(skip_all)]
     pub async fn find_trace(&self, trace_id: TraceId) -> Result<Vec<Span>> {
         let spans = self
             .interact(move |conn| {
@@ -192,6 +192,7 @@ impl Database {
             .collect::<Result<Vec<_>>>()
     }
 
+    #[instrument(skip_all)]
     pub async fn find_traces(
         &self,
         trace_ids: impl Iterator<Item = TraceId>,
@@ -209,6 +210,13 @@ impl Database {
         })
         .await
     }
+}
+
+fn encode_span(span: &Span) -> Result<Vec<u8>> {
+    let buf = postcard::to_stdvec(span)?;
+    let buf = zstd::encode_all(&*buf, 11)?;
+
+    Ok(buf)
 }
 
 fn decode_span(span: Vec<u8>) -> Result<Span> {
@@ -246,6 +254,7 @@ impl TraceInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct ListSpansParams {
     pub service: String,
     pub operation: Option<String>,

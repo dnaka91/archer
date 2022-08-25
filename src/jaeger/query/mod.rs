@@ -51,7 +51,6 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
         .layer(
             ServiceBuilder::new()
                 .compression()
-                .trace_for_http()
                 .layer(Extension(database)),
         );
 
@@ -68,10 +67,12 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
     Ok(())
 }
 
+#[instrument(skip_all)]
 async fn services(Extension(db): Extension<Database>) -> impl IntoResponse {
     ApiResponse::Data(db.list_services().await.unwrap())
 }
 
+#[instrument(skip_all)]
 async fn operations(
     Path(service): Path<String>,
     Extension(db): Extension<Database>,
@@ -79,8 +80,8 @@ async fn operations(
     ApiResponse::Data(db.list_operations(service).await.unwrap())
 }
 
-#[cfg_attr(test, derive(Debug, Default, PartialEq))]
-#[derive(Deserialize)]
+#[cfg_attr(test, derive(Default, PartialEq))]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct TracesQuery {
     service: String,
@@ -133,18 +134,19 @@ impl TracesQuery {
     }
 }
 
-#[cfg_attr(test, derive(Debug, PartialEq))]
-#[derive(Deserialize)]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Deserialize)]
 #[serde(transparent)]
 struct TraceIdsQuery(#[serde(deserialize_with = "de::trace_ids")] Vec<TraceId>);
 
+#[instrument(skip_all)]
 async fn traces(
     query: Result<Query<TracesQuery>, QueryRejection>,
-    trace_ids: Result<Query<TraceIdsQuery>, QueryRejection>,
+    trace_ids: Option<Query<TraceIdsQuery>>,
     Extension(db): Extension<Database>,
 ) -> impl IntoResponse {
     let spans = match (query, trace_ids) {
-        (Ok(Query(query)), Err(_)) => {
+        (Ok(Query(query)), None) => {
             let params = query.into_db().map_err(|e| ApiError {
                 code: StatusCode::BAD_REQUEST,
                 msg: e.to_string().into(),
@@ -152,7 +154,7 @@ async fn traces(
             })?;
             db.list_spans(params).await.unwrap()
         }
-        (Err(_), Ok(Query(ids))) => {
+        (Err(_), Some(Query(ids))) => {
             let spans = db
                 .find_traces(
                     ids.0
@@ -172,14 +174,14 @@ async fn traces(
 
             spans
         }
-        (Ok(_), Ok(_)) => {
+        (Ok(_), Some(_)) => {
             return Err(ApiError {
                 code: StatusCode::BAD_REQUEST,
                 msg: "can't search by trace IDs and query at the same time".into(),
                 trace_id: None,
             });
         }
-        (Err(e), Err(_)) => {
+        (Err(e), None) => {
             return Err(ApiError {
                 code: StatusCode::BAD_REQUEST,
                 msg: e.to_string().into(),
@@ -196,6 +198,7 @@ async fn traces(
     Ok(ApiResponse::Data(traces))
 }
 
+#[instrument(skip_all)]
 async fn trace(
     Path(trace_id): Path<TraceId>,
     Extension(db): Extension<Database>,
@@ -218,6 +221,7 @@ async fn trace(
     ApiResponse::Data(vec![trace])
 }
 
+#[instrument(skip_all)]
 async fn dependencies() -> impl IntoResponse {
     ApiResponse::Data(Vec::<()>::new())
 }

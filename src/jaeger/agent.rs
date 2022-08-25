@@ -118,7 +118,7 @@ async fn run_udp_server(
             },
         };
 
-        let success = debug_span!("request").in_scope(|| {
+        let success = debug_span!(parent: None, "request").in_scope(|| {
             let now = Instant::now();
             tracing::debug!("started processing request");
 

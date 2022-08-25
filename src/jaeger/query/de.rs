@@ -20,7 +20,7 @@ struct TagsVisitor;
 impl<'de> Visitor<'de> for TagsVisitor {
     type Value = HashMap<String, String>;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("tags as single <key>:<value> pair or JSON map")
     }
 
@@ -65,7 +65,7 @@ struct DurationMicrosVisitor;
 impl<'de> Visitor<'de> for DurationMicrosVisitor {
     type Value = Option<Duration>;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("duration in milliseconds")
     }
 
@@ -161,7 +161,7 @@ impl DurationHumanVisitor {
 impl<'de> Visitor<'de> for DurationHumanVisitor {
     type Value = Option<Duration>;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("duration in human readable form")
     }
 
@@ -203,7 +203,7 @@ struct LimitVisitor;
 impl<'de> Visitor<'de> for LimitVisitor {
     type Value = Option<u32>;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("trace limit as integer")
     }
 
@@ -270,7 +270,7 @@ struct TraceIdsVisitor;
 impl<'de> serde::de::Visitor<'de> for TraceIdsVisitor {
     type Value = Vec<TraceId>;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("trace IDs as map with all keys having the same value")
     }
 

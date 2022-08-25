@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![deny(rust_2018_idioms, clippy::all, clippy::pedantic)]
 
 mod serde;
 
