@@ -14,7 +14,7 @@ fn main() {
     let sourcemap = Regex::new(r"\n/(\*|/)# sourceMappingURL=.+\.map( \*/)?").unwrap();
 
     let root = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
-    let root = root.join("jaeger-ui/packages/jaeger-ui/build");
+    let root = root.join("archer-ui/packages/jaeger-ui/build");
     let walker = WalkDir::new(&root);
 
     let out = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
