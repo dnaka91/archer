@@ -37,7 +37,6 @@ import { stripEmbeddedState } from '../../utils/embedded-url';
 import FileLoader from './FileLoader';
 
 import './index.css';
-import JaegerLogo from '../../img/jaeger-logo.svg';
 
 const TabPane = Tabs.TabPane;
 
@@ -94,9 +93,7 @@ export class SearchTracePageImpl extends Component {
       loadJsonTraces,
       urlQueryParams,
     } = this.props;
-    const hasTraceResults = traceResults && traceResults.length > 0;
     const showErrors = errors && !loadingTraces;
-    const showLogo = isHomepage && !hasTraceResults && !loadingTraces && !errors;
     return (
       <Row className="SearchTracePage--row">
         {!embedded && (
@@ -141,14 +138,6 @@ export class SearchTracePageImpl extends Component {
               skipMessage={isHomepage}
               spanLinks={urlQueryParams && urlQueryParams.spanLinks}
               traces={traceResults}
-            />
-          )}
-          {showLogo && (
-            <img
-              className="SearchTracePage--logo js-test-logo"
-              alt="presentation"
-              src={JaegerLogo}
-              width="400"
             />
           )}
         </Col>

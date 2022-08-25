@@ -17,7 +17,6 @@ import { Row, Col, Button, Alert } from 'antd';
 import './index.css';
 import { MonitorEmptyStateConfig } from '../../../types/config';
 import { getConfigValue } from '../../../utils/config/get-config';
-import monitorImg from './media/monitor.png';
 
 export default class MonitorATMEmptyState extends React.PureComponent {
   config: MonitorEmptyStateConfig;
@@ -31,15 +30,6 @@ export default class MonitorATMEmptyState extends React.PureComponent {
   render() {
     return (
       <Col>
-        <Row justify="center">
-          <Col span={8} offset={8}>
-            <img
-              className="monitor-preview-image-empty-state"
-              alt="jaeger-monitor-tab-preview"
-              src={monitorImg}
-            />
-          </Col>
-        </Row>
         <Row justify="center">
           <Col span={6} offset={9} className="center-empty-state">
             {this.config.mainTitle && <h2 className="main-title-empty-state">{this.config.mainTitle}</h2>}

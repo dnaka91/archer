@@ -22,7 +22,7 @@ const { version } = require('../../package.json');
 export default deepFreeze(
   Object.defineProperty(
     {
-      archiveEnabled: false,
+      archiveEnabled: true,
       dependencies: {
         dagMaxNumServices: FALLBACK_DAG_MAX_NUM_SERVICES,
         menuEnabled: true,
@@ -38,27 +38,11 @@ export default deepFreeze(
           items: [
             {
               label: 'Website/Docs',
-              url: 'https://www.jaegertracing.io/',
-            },
-            {
-              label: 'Blog',
-              url: 'https://medium.com/jaegertracing/',
-            },
-            {
-              label: 'Twitter',
-              url: 'https://twitter.com/JaegerTracing',
-            },
-            {
-              label: 'Discussion Group',
-              url: 'https://groups.google.com/forum/#!forum/jaeger-tracing',
-            },
-            {
-              label: 'Online Chat',
-              url: 'https://cloud-native.slack.com/archives/CGG7NFUJ3',
+              url: 'https://dnaka91.github.io/archer',
             },
             {
               label: 'GitHub',
-              url: 'https://github.com/jaegertracing/',
+              url: 'https://github.com/dnaka91/archer',
             },
             {
               label: `Jaeger ${getVersion().gitVersion}`,
@@ -88,7 +72,7 @@ export default deepFreeze(
         customWebAnalytics: null,
       },
       monitor: {
-        menuEnabled: true,
+        menuEnabled: false,
         emptyState: {
           mainTitle: 'Get started with Service Performance Monitoring',
           subTitle:
@@ -97,14 +81,14 @@ export default deepFreeze(
             'Service Performance Monitoring aggregates tracing data into RED metrics and visualizes them in service and operation level dashboards.',
           button: {
             text: 'Read the Documentation',
-            onClick: () => window.open('https://www.jaegertracing.io/docs/latest/spm/'),
+            onClick: () => window.open('https://dnaka91.github.io/archer'),
           },
           alert: {
             message: 'Service Performance Monitoring requires a Prometheus-compatible time series database.',
             type: 'info',
           },
         },
-        docsLink: 'https://www.jaegertracing.io/docs/latest/spm/',
+        docsLink: 'https://dnaka91.github.io/archer',
       },
     },
     // fields that should be individually merged vs wholesale replaced
