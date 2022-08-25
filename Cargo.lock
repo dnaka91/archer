@@ -88,9 +88,11 @@ dependencies = [
 name = "archer-http"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "num-traits",
  "serde",
+ "thiserror",
  "tower",
  "tower-http",
 ]

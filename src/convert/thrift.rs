@@ -15,6 +15,7 @@ pub fn span(span: thrift::Span, process: thrift::Process) -> Result<Span> {
         &references,
     );
 
+    #[allow(clippy::cast_sign_loss)]
     Ok(Span {
         trace_id: trace_id(span.trace_id_high, span.trace_id_low),
         span_id: span_id(span.span_id),
@@ -65,7 +66,8 @@ fn parent_span_id(
 }
 
 fn trace_id(high: i64, low: i64) -> TraceId {
-    let mut id = NonZeroU128::new((high as u64 as u128) << 64 | low as u64 as u128);
+    #[allow(clippy::cast_sign_loss)]
+    let mut id = NonZeroU128::new((u128::from(high as u64)) << 64 | u128::from(low as u64));
 
     loop {
         match id {
@@ -76,6 +78,7 @@ fn trace_id(high: i64, low: i64) -> TraceId {
 }
 
 fn span_id(id: i64) -> SpanId {
+    #[allow(clippy::cast_sign_loss)]
     let mut id = NonZeroU64::new(id as _);
 
     loop {
@@ -110,7 +113,7 @@ fn log(log: thrift::Log) -> Result<Log> {
 }
 
 fn timestamp(microseconds: i64) -> Result<OffsetDateTime> {
-    OffsetDateTime::from_unix_timestamp_nanos(microseconds as i128 * 1000).map_err(Into::into)
+    OffsetDateTime::from_unix_timestamp_nanos(i128::from(microseconds) * 1000).map_err(Into::into)
 }
 
 fn duration(microseconds: i64) -> Duration {

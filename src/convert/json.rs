@@ -52,12 +52,12 @@ fn reference(span_ref: Reference) -> json::Reference {
     }
 }
 
-fn timestamp(timestamp: OffsetDateTime) -> u64 {
-    (timestamp.unix_timestamp_nanos() / 1000) as _
+fn timestamp(timestamp: OffsetDateTime) -> i128 {
+    timestamp.unix_timestamp_nanos() / 1000
 }
 
-fn duration(duration: Duration) -> u64 {
-    duration.whole_microseconds() as _
+fn duration(duration: Duration) -> i128 {
+    duration.whole_microseconds()
 }
 
 fn key_value(kv: Tag) -> json::KeyValue {

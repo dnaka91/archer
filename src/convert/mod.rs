@@ -1,5 +1,3 @@
-#![warn(clippy::unwrap_used)]
-
 pub use json::trace as trace_to_json;
 pub use otlp::{span as span_from_otlp, span_len as span_from_otlp_len};
 pub use proto::span as span_from_proto;

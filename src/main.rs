@@ -1,4 +1,6 @@
-#![deny(rust_2018_idioms, clippy::all)]
+#![deny(rust_2018_idioms, clippy::all, clippy::pedantic)]
+#![warn(clippy::expect_used, clippy::unwrap_used)]
+#![allow(clippy::needless_pass_by_value)]
 
 use anyhow::Result;
 use opentelemetry::sdk::{trace, Resource};

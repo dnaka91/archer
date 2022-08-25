@@ -203,7 +203,7 @@ fn span_id(id: &[u8]) -> SpanId {
 }
 
 fn timestamp(timestamp: u64) -> Result<OffsetDateTime> {
-    OffsetDateTime::from_unix_timestamp_nanos(timestamp as _).map_err(Into::into)
+    OffsetDateTime::from_unix_timestamp_nanos(timestamp.into()).map_err(Into::into)
 }
 
 fn link(link: otlp::span::Link) -> Reference {

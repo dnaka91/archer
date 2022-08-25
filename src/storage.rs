@@ -75,6 +75,7 @@ impl Database {
             .map_err(Into::into)
     }
 
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     pub async fn save_spans(&self, spans: Vec<Span>) -> Result<()> {
         let trace_info = TraceInfo::from_spans(&spans);
         let spans = spans
@@ -133,6 +134,7 @@ impl Database {
         .await
     }
 
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     #[instrument(skip_all)]
     pub async fn list_spans(&self, params: ListSpansParams) -> Result<HashMap<TraceId, Vec<Span>>> {
         let trace_ids = self

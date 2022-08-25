@@ -8,7 +8,7 @@ use archer_http::{
     axum::{
         async_trait,
         body::{Bytes, HttpBody},
-        extract::{FromRequest, RequestParts},
+        extract::{rejection::BytesRejection, FromRequest, RequestParts},
         http::StatusCode,
         response::{IntoResponse, Response},
         routing::post,
@@ -116,14 +116,20 @@ where
     type Rejection = ThriftRejection;
 
     async fn from_request(req: &mut RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let bytes = Bytes::from_request(req).await.unwrap();
-        let value = T::deserialize(&bytes[..]).unwrap();
+        let bytes = Bytes::from_request(req).await?;
+        let value = T::deserialize(&bytes[..])?;
 
         Ok(Self(value))
     }
 }
 
-enum ThriftRejection {}
+#[derive(Debug, thiserror::Error)]
+enum ThriftRejection {
+    #[error("{0}")]
+    Bytes(#[from] BytesRejection),
+    #[error("Failed to parse the request body as Thrift message")]
+    Decode(#[from] archer_thrift::thrift::Error),
+}
 
 impl IntoResponse for ThriftRejection {
     fn into_response(self) -> Response {
@@ -132,18 +138,18 @@ impl IntoResponse for ThriftRejection {
 }
 
 trait ThriftDeserialize: Sized {
-    fn deserialize<R>(data: R) -> Result<Self>
+    fn deserialize<R>(data: R) -> archer_thrift::thrift::Result<Self>
     where
         R: Read;
 }
 
 impl ThriftDeserialize for archer_thrift::jaeger::Batch {
-    fn deserialize<R>(data: R) -> Result<Self>
+    fn deserialize<R>(data: R) -> archer_thrift::thrift::Result<Self>
     where
         R: Read,
     {
         let mut prot = TBinaryInputProtocol::new(data, true);
-        Self::read_from_in_protocol(&mut prot).map_err(Into::into)
+        Self::read_from_in_protocol(&mut prot)
     }
 }
 

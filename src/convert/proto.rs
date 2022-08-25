@@ -62,13 +62,13 @@ fn reference(span_ref: proto::SpanRef) -> Reference {
 
 fn timestamp(timestamp: prost_types::Timestamp) -> Result<OffsetDateTime> {
     OffsetDateTime::from_unix_timestamp_nanos(
-        timestamp.seconds as i128 * 1_000_000_000 + timestamp.nanos as i128,
+        i128::from(timestamp.seconds) * 1_000_000_000 + i128::from(timestamp.nanos),
     )
     .map_err(Into::into)
 }
 
 fn duration(duration: prost_types::Duration) -> Duration {
-    Duration::seconds(duration.seconds) + Duration::nanoseconds(duration.nanos as _)
+    Duration::seconds(duration.seconds) + Duration::nanoseconds(duration.nanos.into())
 }
 
 fn key_value(kv: proto::KeyValue) -> Tag {

@@ -124,6 +124,7 @@ impl DurationHumanVisitor {
 
         let mut total = Duration::ZERO;
 
+        #[allow(clippy::cast_possible_truncation)]
         while let Some((start, end)) = Self::find_next_unit(value) {
             let number = value[..start].parse::<f64>()?;
             let duration = match &value[start..end] {
@@ -150,8 +151,7 @@ impl DurationHumanVisitor {
         let find_end = |value: &str, start: usize| {
             value[start..]
                 .find(|c: char| c.is_ascii_digit())
-                .map(|end| start + end)
-                .unwrap_or(value.len())
+                .map_or(value.len(), |end| start + end)
         };
 
         find_start(value).map(|start| (start, find_end(value, start)))

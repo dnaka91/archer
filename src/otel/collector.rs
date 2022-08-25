@@ -156,8 +156,9 @@ fn protobuf_content_type<B>(req: &RequestParts<B>) -> bool {
         .get(CONTENT_TYPE)
         .and_then(|ct| ct.to_str().ok())
         .and_then(|ct| ct.parse::<Mime>().ok())
-        .map(|ct| ct.type_() == mime::APPLICATION && ct.subtype() == "x-protobuf")
-        .unwrap_or(false)
+        .map_or(false, |ct| {
+            ct.type_() == mime::APPLICATION && ct.subtype() == "x-protobuf"
+        })
 }
 
 #[derive(Debug, thiserror::Error)]

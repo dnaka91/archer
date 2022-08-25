@@ -1,7 +1,8 @@
+#![allow(clippy::unused_async)]
+
 use std::{
     collections::HashMap,
     net::{Ipv4Addr, SocketAddr},
-    num::NonZeroU128,
 };
 
 use anyhow::{ensure, Result};
@@ -24,7 +25,7 @@ use archer_http::{
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 use tokio_shutdown::Shutdown;
-use tracing::{info, instrument};
+use tracing::{error, info, instrument};
 
 use crate::{
     convert,
@@ -68,16 +69,22 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
 }
 
 #[instrument(skip_all)]
-async fn services(Extension(db): Extension<Database>) -> impl IntoResponse {
-    ApiResponse::Data(db.list_services().await.unwrap())
+async fn services(Extension(db): Extension<Database>) -> Result<impl IntoResponse, ApiError> {
+    db.list_services()
+        .await
+        .map(ApiResponse::Data)
+        .map_err(ApiError::from)
 }
 
 #[instrument(skip_all)]
 async fn operations(
     Path(service): Path<String>,
     Extension(db): Extension<Database>,
-) -> impl IntoResponse {
-    ApiResponse::Data(db.list_operations(service).await.unwrap())
+) -> Result<impl IntoResponse, ApiError> {
+    db.list_operations(service)
+        .await
+        .map(ApiResponse::Data)
+        .map_err(ApiError::from)
 }
 
 #[cfg_attr(test, derive(Default, PartialEq))]
@@ -106,14 +113,10 @@ impl TracesQuery {
         ensure!(!self.service.is_empty(), "service name must be specified");
 
         let now = OffsetDateTime::now_utc();
-        let start = self
-            .start
-            .map(|start| OffsetDateTime::UNIX_EPOCH + start)
-            .unwrap_or(now - Duration::hours(48));
-        let end = self
-            .end
-            .map(|end| OffsetDateTime::UNIX_EPOCH + end)
-            .unwrap_or(now);
+        let start = self.start.map_or(now - Duration::hours(48), |start| {
+            OffsetDateTime::UNIX_EPOCH + start
+        });
+        let end = self.end.map_or(now, |end| OffsetDateTime::UNIX_EPOCH + end);
 
         ensure!(start < end, "start must be before end");
 
@@ -144,7 +147,7 @@ async fn traces(
     query: Result<Query<TracesQuery>, QueryRejection>,
     trace_ids: Option<Query<TraceIdsQuery>>,
     Extension(db): Extension<Database>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ApiError> {
     let spans = match (query, trace_ids) {
         (Ok(Query(query)), None) => {
             let params = query.into_db().map_err(|e| ApiError {
@@ -152,17 +155,13 @@ async fn traces(
                 msg: e.to_string().into(),
                 trace_id: None,
             })?;
-            db.list_spans(params).await.unwrap()
+            db.list_spans(params).await.map_err(ApiError::from)?
         }
         (Err(_), Some(Query(ids))) => {
             let spans = db
-                .find_traces(
-                    ids.0
-                        .iter()
-                        .map(|id| NonZeroU128::new(id.0).unwrap().into()),
-                )
+                .find_traces(ids.0.iter().map(|id| id.0.into()))
                 .await
-                .unwrap();
+                .map_err(ApiError::from)?;
 
             if spans.is_empty() {
                 return Err(ApiError {
@@ -202,23 +201,23 @@ async fn traces(
 async fn trace(
     Path(trace_id): Path<TraceId>,
     Extension(db): Extension<Database>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ApiError> {
     let spans = db
-        .find_trace(NonZeroU128::new(trace_id.0).unwrap().into())
+        .find_trace(trace_id.0.into())
         .await
-        .unwrap();
-    let trace = match spans.get(0) {
-        Some(span) => convert::trace_to_json(span.trace_id, spans),
-        None => {
-            return ApiResponse::Error(ApiError {
-                code: StatusCode::NOT_FOUND,
-                msg: "trace ID not found".into(),
-                trace_id: None,
-            })
-        }
-    };
+        .map_err(ApiError::from)?;
+    let trace_id = spans
+        .first()
+        .map(|span| span.trace_id)
+        .ok_or_else(|| ApiError {
+            code: StatusCode::NOT_FOUND,
+            msg: "trace ID not found".into(),
+            trace_id: None,
+        })?;
 
-    ApiResponse::Data(vec![trace])
+    Ok(ApiResponse::Data(vec![convert::trace_to_json(
+        trace_id, spans,
+    )]))
 }
 
 #[instrument(skip_all)]
@@ -248,24 +247,34 @@ async fn asset(uri: Uri, if_none_match: Option<TypedHeader<IfNoneMatch>>) -> imp
     .map(|(name, value)| (name, HeaderValue::from_static(value)))
     .collect::<HeaderMap>();
 
-    let unmatched = if_none_match
-        .map(|v| v.precondition_passes(&asset.etag.parse().unwrap()))
-        .unwrap_or(true);
+    let unmatched = if_none_match.map_or(Ok(true), |v| {
+        asset.etag.parse().map(|etag| v.precondition_passes(&etag))
+    });
 
-    if unmatched {
-        Ok((headers, asset.content))
-    } else {
-        Err((headers, StatusCode::NOT_MODIFIED))
+    match unmatched {
+        Ok(true) => Ok((headers, asset.content)),
+        Ok(false) => Err((headers, StatusCode::NOT_MODIFIED)),
+        Err(e) => {
+            error!(error = ?e, "failed parsing etag");
+            Err((headers, StatusCode::INTERNAL_SERVER_ERROR))
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use std::num::NonZeroU128;
+
     use super::*;
 
     #[tokio::test]
     async fn deser_trace_ids() {
-        let expect = TraceIdsQuery(vec![TraceId(5), TraceId(6)]);
+        let expect = TraceIdsQuery(vec![
+            TraceId(NonZeroU128::new(5).unwrap()),
+            TraceId(NonZeroU128::new(6).unwrap()),
+        ]);
         let result = serde_urlencoded::from_str(&format!("traceID={:032x}&traceID={:032x}", 5, 6));
 
         assert_eq!(expect, result.unwrap());
@@ -349,8 +358,8 @@ mod tests {
         let expect = TracesQuery {
             service: "test".to_owned(),
             operation: "op1".to_owned(),
-            start: Some(Duration::microseconds(1661232631416000)),
-            end: Some(Duration::microseconds(1661236231416000)),
+            start: Some(Duration::microseconds(1_661_232_631_416_000)),
+            end: Some(Duration::microseconds(1_661_236_231_416_000)),
             limit: Some(20),
             tags: [
                 ("a".to_owned(), "1".to_owned()),

@@ -3,6 +3,7 @@ use std::{
     num::{NonZeroU128, NonZeroU64},
 };
 
+use anyhow::Result;
 use opentelemetry::{
     global, runtime,
     sdk::{
@@ -28,7 +29,7 @@ pub fn install_batch(database: Database, config: sdktrace::Config) -> Tracer {
         .build();
 
     let tracer = provider.versioned_tracer("archer-otlp", Some(env!("CARGO_PKG_VERSION")), None);
-    let _ = global::set_tracer_provider(provider);
+    drop(global::set_tracer_provider(provider));
 
     tracer
 }
@@ -46,7 +47,11 @@ impl Debug for OtlpSpanExporter {
 #[archer_http::axum::async_trait]
 impl SpanExporter for OtlpSpanExporter {
     async fn export(&mut self, batch: Vec<SpanData>) -> ExportResult {
-        let batch = batch.into_iter().map(convert_span).collect::<Vec<_>>();
+        let batch = batch
+            .into_iter()
+            .map(convert_span)
+            .collect::<Result<Vec<_>>>()
+            .map_err(|e| TraceError::Other(e.into()))?;
 
         self.0
             .save_spans(batch)
@@ -55,16 +60,16 @@ impl SpanExporter for OtlpSpanExporter {
     }
 }
 
-fn convert_span(span: SpanData) -> Span {
+fn convert_span(span: SpanData) -> Result<Span> {
     let trace_id = trace_id(span.span_context.trace_id());
-    let start = OffsetDateTime::try_from(span.start_time).unwrap();
-    let end = OffsetDateTime::try_from(span.end_time).unwrap();
+    let start = OffsetDateTime::try_from(span.start_time)?;
+    let end = OffsetDateTime::try_from(span.end_time)?;
 
-    Span {
+    Ok(Span {
         trace_id,
         span_id: span_id(span.span_context.span_id()),
         operation_name: span.name.into_owned(),
-        flags: span.span_context.trace_flags().to_u8() as _,
+        flags: span.span_context.trace_flags().to_u8().into(),
         references: (span.parent_span_id != trace::SpanId::INVALID)
             .then(|| Reference {
                 ty: RefType::ChildOf,
@@ -84,20 +89,22 @@ fn convert_span(span: SpanData) -> Span {
         logs: span
             .events
             .into_iter()
-            .map(|event| Log {
-                timestamp: event.timestamp.try_into().unwrap(),
-                fields: (!event.name.is_empty())
-                    .then(|| Tag {
-                        key: "event".to_owned(),
-                        value: TagValue::String(event.name.into_owned()),
-                    })
-                    .into_iter()
-                    .chain(event.attributes.into_iter().filter_map(tag))
-                    .collect(),
+            .map(|event| {
+                Ok(Log {
+                    timestamp: event.timestamp.try_into()?,
+                    fields: (!event.name.is_empty())
+                        .then(|| Tag {
+                            key: "event".to_owned(),
+                            value: TagValue::String(event.name.into_owned()),
+                        })
+                        .into_iter()
+                        .chain(event.attributes.into_iter().filter_map(tag))
+                        .collect(),
+                })
             })
-            .collect(),
+            .collect::<Result<Vec<_>>>()?,
         process: process(span.resource.as_deref()),
-    }
+    })
 }
 
 fn trace_id(id: trace::TraceId) -> TraceId {
