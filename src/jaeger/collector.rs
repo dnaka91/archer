@@ -27,7 +27,7 @@ use archer_proto::{
 };
 use archer_thrift::{jaeger::Batch, thrift::protocol::TBinaryInputProtocol};
 use tokio_shutdown::Shutdown;
-use tracing::{info, instrument};
+use tracing::{error, info, instrument, warn};
 
 use crate::{convert, storage::Database};
 
@@ -83,13 +83,24 @@ async fn run_http(
 async fn traces(
     Thrift(batch): Thrift<Batch>,
     Extension(db): Extension<Database>,
-) -> impl IntoResponse {
-    for span in batch.spans {
-        db.save_span(convert::span_from_thrift(span, Some(batch.process.clone())).unwrap())
-            .await
-            .unwrap();
-    }
-    StatusCode::ACCEPTED
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let spans = batch
+        .spans
+        .into_iter()
+        .map(|span| convert::span_from_thrift(span, batch.process.clone()))
+        .collect::<Result<Vec<_>>>()
+        .map_err(|e| {
+            error!(error = ?e, "failed converting spans");
+            (StatusCode::BAD_REQUEST, e.to_string())
+        })?;
+
+    tokio::spawn(async move {
+        if let Err(e) = db.save_spans(spans).await {
+            error!(error = ?e, "failed to save spans to DB");
+        }
+    });
+
+    Ok(StatusCode::ACCEPTED)
 }
 
 struct Thrift<T>(pub T);
@@ -169,19 +180,29 @@ impl collector_service_server::CollectorService for CollectorService {
         request: tonic::Request<PostSpansRequest>,
     ) -> Result<tonic::Response<PostSpansResponse>, tonic::Status> {
         let PostSpansRequest { batch } = request.into_inner();
-        let api_v2::Batch { spans, process } = batch.unwrap();
-        let process = process.unwrap();
+        let api_v2::Batch { spans, process } =
+            batch.ok_or_else(|| tonic::Status::invalid_argument("batch field missing"))?;
+        let process = process
+            .ok_or_else(|| tonic::Status::invalid_argument("process information missing"))?;
+        let spans = spans
+            .into_iter()
+            .map(|mut span| {
+                span.process.get_or_insert_with(|| process.clone());
+                convert::span_from_proto(span)
+            })
+            .collect::<Result<Vec<_>>>()
+            .map_err(|e| {
+                warn!(error = ?e, "failed to convert spans");
+                tonic::Status::invalid_argument(e.to_string())
+            })?;
         let db = self.0.clone();
 
         tokio::spawn(async move {
-            for mut span in spans {
-                span.process.get_or_insert_with(|| process.clone());
-                db.save_span(convert::span_from_proto(span).unwrap())
-                    .await
-                    .unwrap();
+            if let Err(e) = db.save_spans(spans).await {
+                error!(error = ?e, "failed to save spans to DB");
             }
         });
 
-        Ok(tonic::Response::new(PostSpansResponse {}))
+        Ok(tonic::Response::new(PostSpansResponse::default()))
     }
 }

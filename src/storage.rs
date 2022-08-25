@@ -1,10 +1,10 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, rc::Rc, sync::Arc};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use deadpool::managed::{Hook, HookError, HookErrorCause, Pool};
 use deadpool_sqlite::{Config, Manager, Runtime};
 use deadpool_sync::SyncWrapper;
-use rusqlite::{named_params, params, Connection};
+use rusqlite::{named_params, params, types::Value, Connection};
 use time::{Duration, OffsetDateTime};
 
 use crate::models::{Span, TagValue, TraceId};
@@ -74,26 +74,47 @@ impl Database {
             .map_err(Into::into)
     }
 
-    pub async fn save_span(&self, span: Span) -> Result<()> {
-        let buf = postcard::to_stdvec(&span)?;
-        let buf = zstd::encode_all(&*buf, 11)?;
+    pub async fn save_spans(&self, spans: Vec<Span>) -> Result<()> {
+        let trace_info = TraceInfo::from_spans(&spans);
+        let spans = spans
+            .into_iter()
+            .map(|span| {
+                let buf = postcard::to_stdvec(&span)?;
+                let buf = zstd::encode_all(&*buf, 11)?;
+
+                Ok((span, buf))
+            })
+            .collect::<Result<Vec<_>>>()?;
 
         self.interact(move |conn| {
-            conn.execute(
-                include_str!("queries/save_span.sql"),
-                params![
-                    span.trace_id.to_bytes(),
-                    &span.process.service,
-                    &span.operation_name,
-                    span.start,
-                    span.duration.whole_microseconds() as u64,
-                    buf,
-                ],
-            )
-        })
-        .await?;
+            let conn = conn.transaction()?;
 
-        Ok(())
+            {
+                let mut stmt = conn.prepare(include_str!("queries/save_trace.sql"))?;
+                for (trace_id, info) in trace_info {
+                    stmt.execute(params![
+                        trace_id.to_bytes(),
+                        info.service,
+                        info.timestamp,
+                        info.min_duration.whole_microseconds() as u64,
+                        info.max_duration.whole_microseconds() as u64
+                    ])?;
+                }
+
+                let mut stmt = conn.prepare(include_str!("queries/save_span.sql"))?;
+                for (span, buf) in spans {
+                    stmt.execute(params![
+                        span.trace_id.to_bytes(),
+                        span.span_id.to_bytes(),
+                        &span.operation_name,
+                        buf,
+                    ])?;
+                }
+            }
+
+            conn.commit()
+        })
+        .await
     }
 
     pub async fn list_services(&self) -> Result<Vec<String>> {
@@ -115,34 +136,41 @@ impl Database {
     }
 
     pub async fn list_spans(&self, params: ListSpansParams) -> Result<HashMap<TraceId, Vec<Span>>> {
+        let trace_ids = self
+            .interact(move |conn| {
+                conn.prepare(include_str!("queries/list_traces.sql"))?
+                    .query_map(
+                        named_params! {
+                            ":service": params.service,
+                            ":t_min": params.start,
+                            ":t_max": params.end,
+                            ":d_min": params.duration_min.map(|d| d.whole_microseconds() as u64),
+                            ":d_max": params.duration_max.map(|d| d.whole_microseconds() as u64),
+                            ":limit": params.limit,
+                        },
+                        |row| row.get::<_, [u8; 16]>(0),
+                    )?
+                    .map(|raw| TraceId::try_from(raw?).map(Into::into))
+                    .collect::<Result<Vec<Value>>>()
+            })
+            .await
+            .context("failed listing trace IDs")?;
+
         self.interact::<_, _, anyhow::Error>(move |conn| {
             conn.prepare(include_str!("queries/list_spans.sql"))?
-                .query_map(
-                    named_params! {
-                        ":service": params.service,
-                        ":op": params.operation,
-                        ":t_min": params.start,
-                        ":t_max": params.end,
-                        ":d_min": params.duration_min.map(|d| d.whole_microseconds() as u64),
-                        ":d_max": params.duration_max.map(|d| d.whole_microseconds() as u64),
-                    },
-                    |row| Ok((row.get(0)?, row.get(1)?)),
-                )?
+                .query_map([Rc::new(trace_ids)], |row| row.get(0))?
                 .try_fold(HashMap::<TraceId, Vec<Span>>::new(), |mut map, entry| {
-                    if map.len() >= params.limit {
-                        return Ok(map);
-                    }
-
-                    let (trace_id, span) = trace_id_and_span(entry?)?;
+                    let span = decode_span(entry?).context("failed decoding span")?;
 
                     if span_contains_tag(&span, &params.tags) {
-                        map.entry(trace_id).or_default().push(span);
+                        map.entry(span.trace_id).or_default().push(span);
                     }
 
                     Ok(map)
                 })
         })
         .await
+        .context("failed listing spans")
     }
 
     pub async fn find_trace(&self, trace_id: TraceId) -> Result<Vec<Span>> {
@@ -168,18 +196,14 @@ impl Database {
         &self,
         trace_ids: impl Iterator<Item = TraceId>,
     ) -> Result<HashMap<TraceId, Vec<Span>>> {
-        use std::rc::Rc;
-
-        use rusqlite::types::Value;
-
         let trace_ids = trace_ids.map(Into::into).collect::<Vec<Value>>();
 
         self.interact::<_, _, anyhow::Error>(move |conn| {
             conn.prepare(include_str!("queries/find_traces.sql"))?
-                .query_map([Rc::new(trace_ids)], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .query_map([Rc::new(trace_ids)], |row| row.get(0))?
                 .try_fold(HashMap::<TraceId, Vec<Span>>::new(), |mut map, entry| {
-                    let (trace_id, span) = trace_id_and_span(entry?)?;
-                    map.entry(trace_id).or_default().push(span);
+                    let span = decode_span(entry?)?;
+                    map.entry(span.trace_id).or_default().push(span);
                     Ok(map)
                 })
         })
@@ -187,12 +211,39 @@ impl Database {
     }
 }
 
-fn trace_id_and_span((trace_id, span): ([u8; 16], Vec<u8>)) -> Result<(TraceId, Span)> {
-    let trace_id = TraceId::try_from(trace_id).unwrap();
+fn decode_span(span: Vec<u8>) -> Result<Span> {
     let span = zstd::decode_all(&*span)?;
     let span = postcard::from_bytes(&span)?;
 
-    Ok((trace_id, span))
+    Ok(span)
+}
+
+struct TraceInfo {
+    service: String,
+    timestamp: OffsetDateTime,
+    min_duration: Duration,
+    max_duration: Duration,
+}
+
+impl TraceInfo {
+    fn from_spans(spans: &[Span]) -> HashMap<TraceId, Self> {
+        let mut map = HashMap::new();
+
+        for span in spans {
+            let info = map.entry(span.trace_id).or_insert_with(|| TraceInfo {
+                service: span.process.service.clone(),
+                timestamp: span.start,
+                min_duration: span.duration,
+                max_duration: span.duration,
+            });
+
+            info.timestamp = info.timestamp.min(span.start);
+            info.min_duration = info.min_duration.min(span.duration);
+            info.max_duration = info.max_duration.max(span.duration);
+        }
+
+        map
+    }
 }
 
 pub struct ListSpansParams {

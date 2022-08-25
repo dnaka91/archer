@@ -22,7 +22,7 @@ use futures_util::{SinkExt, StreamExt};
 use tokio::net::UdpSocket;
 use tokio_shutdown::Shutdown;
 use tokio_util::{codec::BytesCodec, udp::UdpFramed};
-use tracing::{debug_span, error, info, instrument, Span};
+use tracing::{debug_span, error, info, instrument, warn, Span};
 
 use crate::{convert, storage::Database};
 
@@ -156,16 +156,20 @@ impl AgentSyncHandler for Handler {
 
     #[instrument(skip_all)]
     fn handle_emit_batch(&self, batch: jaeger::Batch) -> thrift::Result<()> {
-        let db = self.0.clone();
         let spans = batch
             .spans
             .into_iter()
-            .map(|span| convert::span_from_thrift(span, Some(batch.process.clone())).unwrap())
-            .collect::<Vec<_>>();
+            .map(|span| convert::span_from_thrift(span, batch.process.clone()))
+            .collect::<Result<Vec<_>>>()
+            .map_err(|e| {
+                warn!(error = ?e, "failed converting spans");
+                thrift::Error::User(e.into())
+            })?;
+        let db = self.0.clone();
 
         tokio::spawn(async move {
-            for span in spans {
-                db.save_span(span).await.unwrap();
+            if let Err(e) = db.save_spans(spans).await {
+                error!(error = ?e, "failed to save spans to DB");
             }
         });
 

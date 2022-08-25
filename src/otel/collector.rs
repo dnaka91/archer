@@ -15,9 +15,12 @@ use archer_http::{
     tower_http::ServiceBuilderExt,
 };
 use archer_proto::{
-    opentelemetry::proto::collector::trace::v1::{
-        trace_service_server::{self, TraceServiceServer},
-        ExportTraceServiceRequest, ExportTraceServiceResponse,
+    opentelemetry::proto::{
+        collector::trace::v1::{
+            trace_service_server::{self, TraceServiceServer},
+            ExportTraceServiceRequest, ExportTraceServiceResponse,
+        },
+        trace::v1::ResourceSpans,
     },
     prost::{DecodeError, Message},
     tonic::{self, codegen::CompressionEncoding},
@@ -25,9 +28,9 @@ use archer_proto::{
 use bytes::BytesMut;
 use mime::Mime;
 use tokio_shutdown::Shutdown;
-use tracing::{info, instrument};
+use tracing::{error, info, instrument, warn};
 
-use crate::{convert, storage::Database};
+use crate::{convert, models, storage::Database};
 
 #[instrument(name = "otlp", skip_all)]
 pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
@@ -79,20 +82,21 @@ async fn run_http(
 }
 
 async fn traces(
-    Protobuf(trace): Protobuf<ExportTraceServiceRequest>,
+    Protobuf(request): Protobuf<ExportTraceServiceRequest>,
     Extension(db): Extension<Database>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let spans = convert_resource_spans(request.resource_spans)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+
     tokio::spawn(async move {
-        for spans in trace.resource_spans {
-            for span in convert::span_from_otlp(spans).unwrap() {
-                db.save_span(span).await.unwrap();
-            }
+        if let Err(e) = db.save_spans(spans).await {
+            error!(error = ?e, "failed to save spans to DB");
         }
     });
 
-    Protobuf(ExportTraceServiceResponse {
+    Ok(Protobuf(ExportTraceServiceResponse {
         partial_success: None,
-    })
+    }))
 }
 
 struct Protobuf<T>(pub T);
@@ -210,19 +214,36 @@ impl trace_service_server::TraceService for TraceService {
         &self,
         request: tonic::Request<ExportTraceServiceRequest>,
     ) -> Result<tonic::Response<ExportTraceServiceResponse>, tonic::Status> {
-        let ExportTraceServiceRequest { resource_spans } = request.into_inner();
+        let spans = convert_resource_spans(request.into_inner().resource_spans)
+            .map_err(|e| tonic::Status::invalid_argument(e.to_string()))?;
         let db = self.0.clone();
 
         tokio::spawn(async move {
-            for spans in resource_spans {
-                for span in convert::span_from_otlp(spans).unwrap() {
-                    db.save_span(span).await.unwrap();
-                }
+            if let Err(e) = db.save_spans(spans).await {
+                error!(error = ?e, "failed to save spans to DB");
             }
         });
 
-        Ok(tonic::Response::new(ExportTraceServiceResponse {
-            partial_success: None,
-        }))
+        Ok(tonic::Response::new(ExportTraceServiceResponse::default()))
     }
+}
+
+fn convert_resource_spans(resource_spans: Vec<ResourceSpans>) -> Result<Vec<models::Span>> {
+    let span_len = convert::span_from_otlp_len(&resource_spans);
+
+    resource_spans
+        .into_iter()
+        .try_fold(
+            Vec::with_capacity(span_len),
+            |mut acc, spans| match convert::span_from_otlp(spans) {
+                Ok(spans) => {
+                    acc.extend(spans);
+                    Ok(acc)
+                }
+                Err(e) => {
+                    warn!(error = ?e, "failed to convert spans");
+                    Err(e)
+                }
+            },
+        )
 }

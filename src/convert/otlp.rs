@@ -9,6 +9,14 @@ use time::OffsetDateTime;
 
 use crate::models::{Log, Process, RefType, Reference, Span, SpanId, Tag, TagValue, TraceId};
 
+pub fn span_len(res_spans: &[otlp::ResourceSpans]) -> usize {
+    res_spans
+        .iter()
+        .flat_map(|rs| &rs.scope_spans)
+        .map(|ss| ss.spans.len())
+        .sum()
+}
+
 pub fn span(res_spans: otlp::ResourceSpans) -> Result<Vec<Span>> {
     let resource = res_spans.resource.unwrap_or_default();
     let spans = res_spans.scope_spans;

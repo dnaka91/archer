@@ -1,12 +1,12 @@
 use std::num::{NonZeroU128, NonZeroU64};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use archer_thrift::jaeger as thrift;
 use time::{Duration, OffsetDateTime};
 
 use crate::models::{Log, Process, RefType, Reference, Span, SpanId, Tag, TagValue, TraceId};
 
-pub fn span(span: thrift::Span, proc: Option<thrift::Process>) -> Result<Span> {
+pub fn span(span: thrift::Span, process: thrift::Process) -> Result<Span> {
     let references = span.references.unwrap_or_default();
 
     let parent = parent_span_id(
@@ -39,7 +39,7 @@ pub fn span(span: thrift::Span, proc: Option<thrift::Process>) -> Result<Span> {
             .into_iter()
             .map(log)
             .collect::<Result<_>>()?,
-        process: process(proc.context("process field missing")?)?,
+        process: self::process(process)?,
     })
 }
 
