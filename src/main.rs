@@ -31,13 +31,22 @@ async fn main() -> Result<()> {
     );
 
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .with(tracing_opentelemetry::layer().with_tracer(tracer))
         .with(
-            Targets::new()
-                .with_default(LevelFilter::WARN)
-                .with_target(env!("CARGO_CRATE_NAME"), LevelFilter::TRACE)
-                .with_target("tower_http", LevelFilter::DEBUG),
+            tracing_subscriber::fmt::layer().with_filter(
+                Targets::new()
+                    .with_default(LevelFilter::WARN)
+                    .with_target(env!("CARGO_CRATE_NAME"), LevelFilter::TRACE)
+                    .with_target("tower_http", LevelFilter::DEBUG),
+            ),
+        )
+        .with(
+            tracing_opentelemetry::layer()
+                .with_tracer(tracer)
+                .with_filter(
+                    Targets::new()
+                        .with_default(LevelFilter::OFF)
+                        .with_target("archer::jaeger::query", LevelFilter::INFO),
+                ),
         )
         .init();
 

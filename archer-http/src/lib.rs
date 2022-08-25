@@ -103,55 +103,67 @@ pub struct ApiError {
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        Json(ApiResponse::<()>::Error(self)).into_response()
+        ApiResponse::<()>::Error(self).into_response()
     }
+}
+
+impl From<anyhow::Error> for ApiError {
+    fn from(value: anyhow::Error) -> Self {
+        Self {
+            code: StatusCode::INTERNAL_SERVER_ERROR,
+            msg: value.to_string().into(),
+            trace_id: None,
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ParseIdError {
+    #[error("The ID is no valid hex integer: {0}")]
+    ParseInt(#[from] ParseIntError),
+    #[error("The ID must not be zero")]
+    Zero,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct TraceId(#[serde(with = "serde::hex")] pub u128);
-
-impl From<u128> for TraceId {
-    fn from(value: u128) -> Self {
-        Self(value)
-    }
-}
+pub struct TraceId(#[serde(with = "serde::hex::nonzero")] pub NonZeroU128);
 
 impl From<NonZeroU128> for TraceId {
     fn from(value: NonZeroU128) -> Self {
-        Self(value.get())
+        Self(value)
     }
 }
 
 impl FromStr for TraceId {
-    type Err = ParseIntError;
+    type Err = ParseIdError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        u128::from_str_radix(s, 16).map(Self)
+        let id = u128::from_str_radix(s, 16)?;
+        let id = NonZeroU128::new(id).ok_or(Self::Err::Zero)?;
+
+        Ok(Self(id))
     }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct SpanId(#[serde(with = "serde::hex")] pub u64);
+pub struct SpanId(#[serde(with = "serde::hex::nonzero")] pub NonZeroU64);
 
-impl From<u64> for SpanId {
-    fn from(value: u64) -> Self {
+impl From<NonZeroU64> for SpanId {
+    fn from(value: NonZeroU64) -> Self {
         Self(value)
     }
 }
 
-impl From<NonZeroU64> for SpanId {
-    fn from(value: NonZeroU64) -> Self {
-        Self(value.get())
-    }
-}
-
 impl FromStr for SpanId {
-    type Err = ParseIntError;
+    type Err = ParseIdError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        u64::from_str_radix(s, 16).map(Self)
+        let id = u64::from_str_radix(s, 16)?;
+        let id = NonZeroU64::new(id).ok_or(Self::Err::Zero)?;
+
+        Ok(Self(id))
     }
 }
 
@@ -188,8 +200,8 @@ pub struct Span {
     pub flags: u32,
     pub operation_name: String,
     pub references: Vec<Reference>,
-    pub start_time: u64,
-    pub duration: u64,
+    pub start_time: i128,
+    pub duration: i128,
     pub tags: Vec<KeyValue>,
     pub logs: Vec<Log>,
     #[serde(rename = "processID")]
@@ -225,7 +237,7 @@ pub struct Process {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Log {
-    pub timestamp: u64,
+    pub timestamp: i128,
     pub fields: Vec<KeyValue>,
 }
 

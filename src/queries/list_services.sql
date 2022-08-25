@@ -1,1 +1,1 @@
-SELECT DISTINCT service FROM traces;
+SELECT DISTINCT service FROM services;

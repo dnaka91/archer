@@ -15,9 +15,6 @@ archer-proto = { path = "archer-proto" }
 archer-thrift = { path = "archer-thrift" }
 base64 = "0.13.0"
 bytes = "1.2.1"
-deadpool = "0.9.5"
-deadpool-sqlite = "0.5.0"
-deadpool-sync = "0.1.0"
 futures-util = { version = "0.3.23", features = ["sink"] }
 hex = "0.4.3"
 mime = "0.3.16"
@@ -26,7 +23,7 @@ opentelemetry-semantic-conventions = "0.9.0"
 phf = { version = "0.11.1", features = ["macros"] }
 postcard = { version = "1.0.2", default-features = false, features = ["use-std"] }
 rand = "0.8.5"
-rusqlite = { version = "0.28.0", features = ["array", "bundled", "time"] }
+rusqlite = { version = "0.28.0", features = ["array", "bundled", "time", "trace"] }
 serde = { version = "1.0.144", features = ["derive"] }
 serde_json = "1.0.85"
 thiserror = "1.0.32"

@@ -14,3 +14,14 @@ CREATE TABLE IF NOT EXISTS spans(
     data      BLOB NOT NULL,
     PRIMARY KEY (trace_id, span_id)
 ) STRICT, WITHOUT ROWID;
+
+CREATE TABLE IF NOT EXISTS services(
+    service   TEXT NOT NULL,
+    PRIMARY KEY (service)
+) STRICT, WITHOUT ROWID;
+
+CREATE TABLE IF NOT EXISTS operations(
+    service   TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    PRIMARY KEY (service, operation)
+) STRICT, WITHOUT ROWID;
