@@ -2,7 +2,7 @@ FROM node:16-alpine as uibuilder
 
 WORKDIR /volume
 
-COPY jaeger-ui/ ./
+COPY archer-ui/ ./
 
 RUN yarn install && yarn run build
 
@@ -28,7 +28,7 @@ COPY --from=planner /volume/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
 COPY ./ ./
-COPY --from=uibuilder /volume/packages/jaeger-ui/build/ /volume/jaeger-ui/packages/jaeger-ui/build/
+COPY --from=uibuilder /volume/packages/archer-ui/build/ /volume/archer-ui/packages/archer-ui/build/
 
 RUN cargo build --release
 
