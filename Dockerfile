@@ -28,7 +28,7 @@ COPY --from=planner /volume/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
 COPY ./ ./
-COPY --from=uibuilder /volume/packages/archer-ui/build/ /volume/archer-ui/packages/archer-ui/build/
+COPY --from=uibuilder /volume/packages/jaeger-ui/build/ /volume/archer-ui/packages/jaeger-ui/build/
 
 RUN cargo build --release
 
