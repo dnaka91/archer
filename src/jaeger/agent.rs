@@ -1,7 +1,4 @@
-use std::{
-    net::{Ipv4Addr, SocketAddr},
-    time::Instant,
-};
+use std::{net::SocketAddr, time::Instant};
 
 use anyhow::Result;
 use archer_thrift::{
@@ -24,7 +21,7 @@ use tokio_shutdown::Shutdown;
 use tokio_util::{codec::BytesCodec, udp::UdpFramed};
 use tracing::{debug_span, error, info, instrument, warn, Span};
 
-use crate::{convert, storage::Database};
+use crate::{convert, net, storage::Database};
 
 #[instrument(name = "agent", skip_all)]
 pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
@@ -33,13 +30,13 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
             Span::current(),
             shutdown.clone(),
             database.clone(),
-            SocketAddr::from((Ipv4Addr::LOCALHOST, 6831)),
+            SocketAddr::from(net::JAEGER_AGENT_COMPACT),
         )),
         tokio::spawn(run_binary(
             Span::current(),
             shutdown,
             database,
-            SocketAddr::from((Ipv4Addr::LOCALHOST, 6832)),
+            SocketAddr::from(net::JAEGER_AGENT_BINARY),
         )),
     )?;
 

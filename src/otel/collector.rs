@@ -1,4 +1,4 @@
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::SocketAddr;
 
 use anyhow::Result;
 use archer_http::{
@@ -30,7 +30,7 @@ use mime::Mime;
 use tokio_shutdown::Shutdown;
 use tracing::{error, info, instrument, warn};
 
-use crate::{convert, models, storage::Database};
+use crate::{convert, models, net, storage::Database};
 
 #[instrument(name = "otlp", skip_all)]
 pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
@@ -39,13 +39,13 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
             tracing::Span::current(),
             shutdown.clone(),
             database.clone(),
-            SocketAddr::from((Ipv4Addr::LOCALHOST, 4317))
+            SocketAddr::from(net::OTLP_COLLECTOR_GRPC)
         )),
         tokio::spawn(run_http(
             tracing::Span::current(),
             shutdown,
             database,
-            SocketAddr::from((Ipv4Addr::LOCALHOST, 4318))
+            SocketAddr::from(net::OTLP_COLLECTOR_HTTP)
         ))
     )?;
 

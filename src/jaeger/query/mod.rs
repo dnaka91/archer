@@ -1,9 +1,6 @@
 #![allow(clippy::unused_async)]
 
-use std::{
-    collections::HashMap,
-    net::{Ipv4Addr, SocketAddr},
-};
+use std::{collections::HashMap, net::SocketAddr};
 
 use anyhow::{ensure, Result};
 use archer_http::{
@@ -28,7 +25,7 @@ use tokio_shutdown::Shutdown;
 use tracing::{error, info, instrument};
 
 use crate::{
-    convert,
+    convert, net,
     storage::{Database, ListSpansParams},
 };
 
@@ -55,7 +52,7 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
                 .layer(Extension(database)),
         );
 
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 16686));
+    let addr = SocketAddr::from(net::JAEGER_QUERY_HTTP);
     info!("listening on http://{addr}");
 
     Server::bind(&addr)

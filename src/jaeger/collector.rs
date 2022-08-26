@@ -1,7 +1,4 @@
-use std::{
-    io::Read,
-    net::{Ipv4Addr, SocketAddr},
-};
+use std::{io::Read, net::SocketAddr};
 
 use anyhow::Result;
 use archer_http::{
@@ -29,7 +26,7 @@ use archer_thrift::{jaeger::Batch, thrift::protocol::TBinaryInputProtocol};
 use tokio_shutdown::Shutdown;
 use tracing::{error, info, instrument, warn};
 
-use crate::{convert, storage::Database};
+use crate::{convert, net, storage::Database};
 
 #[instrument(name = "collector", skip_all)]
 pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
@@ -38,13 +35,13 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
             tracing::Span::current(),
             shutdown.clone(),
             database.clone(),
-            SocketAddr::from((Ipv4Addr::LOCALHOST, 14268)),
+            SocketAddr::from(net::JAEGER_COLLECTOR_HTTP),
         )),
         tokio::spawn(run_grpc(
             tracing::Span::current(),
             shutdown,
             database,
-            SocketAddr::from((Ipv4Addr::LOCALHOST, 14250)),
+            SocketAddr::from(net::JAEGER_COLLECTOR_GRPC),
         ))
     )?;
 

@@ -13,6 +13,7 @@ use tracing_subscriber::{filter::Targets, prelude::*};
 mod convert;
 mod jaeger;
 mod models;
+mod net;
 mod otel;
 mod storage;
 mod tracer;
