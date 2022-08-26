@@ -5,6 +5,7 @@ use rusqlite::{named_params, params, types::Value, Connection};
 use time::{Duration, OffsetDateTime};
 use tokio::sync::Mutex;
 use tracing::instrument;
+use unidirs::{Directories, UnifiedDirs, Utf8PathBuf};
 
 use crate::models::{Span, TagValue, TraceId};
 
@@ -13,22 +14,30 @@ pub struct Database(Arc<Mutex<Connection>>);
 
 pub async fn init() -> Result<Database> {
     let conn = tokio::task::spawn_blocking(|| {
-        let mut conn = Connection::open("db.sqlite3")?;
+        let path = get_db_path()?;
+        let mut conn = Connection::open(path)?;
+
         conn.trace(Some(|sql| tracing::trace!("{sql}")));
         rusqlite::vtab::array::load_module(&conn)?;
-        conn.execute_batch(
-            "
-            PRAGMA journal_mode = wal;
-            PRAGMA synchronous = normal;
-            PRAGMA foreign_keys = on;
-        ",
-        )?;
-        conn.execute_batch(include_str!("queries/00_create.sql"))?;
+        conn.execute_batch(include_str!("queries/00_pragmas.sql"))?;
+        conn.execute_batch(include_str!("queries/01_create.sql"))?;
+
         anyhow::Ok(conn)
     })
     .await??;
 
     Ok(Database(Arc::new(Mutex::new(conn))))
+}
+
+fn get_db_path() -> Result<Utf8PathBuf> {
+    let dirs = UnifiedDirs::simple("rocks", "dnaka91", env!("CARGO_PKG_NAME"))
+        .default()
+        .context("failed finding project directories")?;
+    let data_dir = dirs.data_dir();
+
+    std::fs::create_dir_all(&data_dir)?;
+
+    Ok(data_dir.join("db.sqlite3"))
 }
 
 impl Database {
