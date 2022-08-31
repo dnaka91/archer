@@ -1,3 +1,6 @@
+[advisories]
+ignore = ["RUSTSEC-2021-0139"]
+
 [licenses]
 allow = []
 allow-osi-fsf-free = "both"
@@ -6,5 +9,22 @@ exceptions = [
     { allow = ["AGPL-3.0"], name = "archer-http" },
     { allow = ["AGPL-3.0"], name = "archer-proto" },
     { allow = ["AGPL-3.0"], name = "archer-thrift" },
+    { allow = ["AGPL-3.0"], name = "tracing-quiver" },
+    { allow = ["BSD-2-Clause"], name = "mach" },
+    { allow = ["OpenSSL"], name = "ring" },
     { allow = ["Unicode-DFS-2016"], name = "unicode-ident" },
+]
+
+[[licenses.clarify]]
+name = "ring"
+version = "*"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [
+    { path = "LICENSE", hash = 0xbd0eed23 },
+]
+
+[bans]
+skip = [
+    { name = "rustls-pemfile", version = "=0.2.1" },
+    { name = "wasi", version = "=0.10.2" },
 ]

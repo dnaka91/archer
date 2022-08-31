@@ -15,6 +15,7 @@ mod jaeger;
 mod models;
 mod net;
 mod otel;
+mod quiver;
 mod storage;
 mod tracer;
 
@@ -64,7 +65,11 @@ async fn main() -> Result<()> {
             shutdown.clone(),
             database.clone()
         ))),
-        flatten(tokio::spawn(otel::collector::run(shutdown, database))),
+        flatten(tokio::spawn(otel::collector::run(
+            shutdown.clone(),
+            database.clone(),
+        ))),
+        flatten(tokio::spawn(quiver::collector::run(shutdown, database))),
     )?;
 
     Ok(())
