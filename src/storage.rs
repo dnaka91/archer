@@ -170,11 +170,7 @@ impl Database {
 
         spans
             .into_iter()
-            .map(|span| {
-                let span = zstd::decode_all(&*span)?;
-                let span = postcard::from_bytes(&span)?;
-                anyhow::Ok(span)
-            })
+            .map(decode_span)
             .collect::<Result<Vec<_>>>()
     }
 
@@ -199,15 +195,15 @@ impl Database {
 }
 
 fn encode_span(span: &Span) -> Result<Vec<u8>> {
-    let buf = postcard::to_stdvec(span)?;
-    let buf = zstd::bulk::compress(&*buf, 11)?;
+    let buf = rmp_serde::to_vec(span)?;
+    let buf = snap::raw::Encoder::new().compress_vec(&buf)?;
 
     Ok(buf)
 }
 
 fn decode_span(span: Vec<u8>) -> Result<Span> {
-    let span = zstd::decode_all(&*span)?;
-    let span = postcard::from_bytes(&span)?;
+    let span = snap::raw::Decoder::new().decompress_vec(&span)?;
+    let span = rmp_serde::from_slice(&span)?;
 
     Ok(span)
 }

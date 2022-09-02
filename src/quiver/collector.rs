@@ -151,7 +151,8 @@ async fn handle_request(recv: RecvStream, database: Database) -> Result<()> {
         .await
         .context("failed reading request")?;
 
-    let span = postcard::from_bytes::<super::models::Span>(&req)?;
+    let raw = snap::raw::Decoder::new().decompress_vec(&req)?;
+    let span = rmp_serde::from_slice::<super::models::Span>(&raw)?;
     let span = convert::span_from_quiver(span);
 
     tokio::spawn(async move {

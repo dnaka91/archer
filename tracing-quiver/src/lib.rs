@@ -1,3 +1,7 @@
+// #![deny(rust_2018_idioms, clippy::all, clippy::pedantic)]
+// #![warn(clippy::expect_used, clippy::unwrap_used)]
+#![allow(clippy::missing_errors_doc)]
+
 use std::{
     borrow::Cow,
     io::Cursor,
@@ -242,7 +246,7 @@ where
                     .map(|(id, name)| models::Thread {
                         id,
                         name: name.into(),
-                }),
+                    }),
                 tags: builder.tags,
                 logs: builder.logs,
                 process: models::Process {
@@ -251,7 +255,8 @@ where
                 },
             };
 
-            let data = postcard::to_stdvec(&data).unwrap();
+            let data = rmp_serde::to_vec(&data).unwrap();
+            let data = snap::raw::Encoder::new().compress_vec(&data).unwrap();
 
             send.write_all(&data).await.unwrap();
             send.finish().await.unwrap();
@@ -286,21 +291,25 @@ pub struct Builder {
 }
 
 impl Builder {
+    #[must_use]
     pub fn with_server_cert(mut self, cert: impl Into<Cow<'static, str>>) -> Self {
         self.cert = Some(cert.into());
         self
     }
 
+    #[must_use]
     pub fn with_server_addr(mut self, addr: impl Into<SocketAddr>) -> Self {
         self.addr = Some(addr.into());
         self
     }
 
+    #[must_use]
     pub fn with_server_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         self.name = Some(name.into());
         self
     }
 
+    #[must_use]
     pub fn with_clock(mut self, clock: Clock) -> Self {
         self.clock = Some(clock);
         self
@@ -360,6 +369,7 @@ pub enum BuildLayerError {
     Connection(#[from] quinn::ConnectionError),
 }
 
+#[must_use]
 pub fn builder() -> Builder {
     Builder::default()
 }
