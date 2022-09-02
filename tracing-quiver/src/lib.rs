@@ -25,6 +25,7 @@ mod models;
 pub struct QuiverLayer<S> {
     connection: Connection,
     clock: Clock,
+    resource: Resource,
     _inner: PhantomData<S>,
 }
 
@@ -89,6 +90,21 @@ fn location_from_meta<'a>(meta: &Metadata<'a>) -> Option<models::Location<'a>> {
         namespace: meta.module_path()?.into(),
         lineno: meta.line()?,
     })
+}
+
+#[derive(Clone)]
+struct Resource {
+    name: Arc<str>,
+    version: Arc<str>,
+}
+
+impl Resource {
+    fn new() -> Self {
+        Self {
+            name: "".into(),
+            version: "".into(),
+        }
+    }
 }
 
 impl<S> Layer<S> for QuiverLayer<S>
@@ -223,6 +239,7 @@ where
             .expect("timings extension missing");
 
         let open_uni = self.connection.open_uni();
+        let resource = self.resource.clone();
 
         tokio::spawn(async move {
             let mut send = open_uni.await.unwrap();
@@ -250,7 +267,8 @@ where
                 tags: builder.tags,
                 logs: builder.logs,
                 process: models::Process {
-                    service: "simple".into(),
+                    service: resource.name,
+                    version: resource.version,
                     tags: vec![],
                 },
             };
@@ -288,6 +306,7 @@ pub struct Builder {
     addr: Option<SocketAddr>,
     name: Option<Cow<'static, str>>,
     clock: Option<Clock>,
+    resource: Option<Resource>,
 }
 
 impl Builder {
@@ -312,6 +331,19 @@ impl Builder {
     #[must_use]
     pub fn with_clock(mut self, clock: Clock) -> Self {
         self.clock = Some(clock);
+        self
+    }
+
+    #[must_use]
+    pub fn with_resource(
+        mut self,
+        name: impl Into<Cow<'static, str>>,
+        version: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        self.resource = Some(Resource {
+            name: name.into().into(),
+            version: version.into().into(),
+        });
         self
     }
 
@@ -343,6 +375,7 @@ impl Builder {
         let layer = QuiverLayer {
             connection: connection.clone(),
             clock: self.clock.unwrap_or_else(Clock::new),
+            resource: self.resource.unwrap_or_else(Resource::new),
             _inner: PhantomData,
         };
 

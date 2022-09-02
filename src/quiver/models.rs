@@ -69,6 +69,7 @@ pub enum LogLevel {
 #[derive(Debug, Deserialize)]
 pub struct Process {
     pub service: String,
+    pub version: String,
     pub tags: Vec<Tag>,
 }
 

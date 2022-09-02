@@ -17,7 +17,11 @@ DlljIQNJ6cCTK33ar8fJ
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let (layer, handle) = tracing_quiver::layer(CERTIFICATE).await?;
+    let (layer, handle) = tracing_quiver::builder()
+        .with_server_cert(CERTIFICATE)
+        .with_resource(env!("CARGO_CRATE_NAME"), env!("CARGO_PKG_VERSION"))
+        .build()
+        .await?;
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())

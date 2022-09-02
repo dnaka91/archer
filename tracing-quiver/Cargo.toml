@@ -13,7 +13,7 @@ rand = "0.8.5"
 rmp-serde = "1.1.0"
 rustls = "0.20.6"
 rustls-pemfile = "1.0.1"
-serde = { version = "1.0.144", features = ["derive"] }
+serde = { version = "1.0.144", features = ["derive", "rc"] }
 snap = "1.0.5"
 thiserror = "1.0.33"
 time = { version = "0.3.14", features = ["serde"] }

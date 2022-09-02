@@ -30,10 +30,7 @@ pub fn span(span: quiver::Span) -> Span {
             .chain(span.tags.into_iter().map(tag))
             .collect(),
         logs: span.logs.into_iter().map(log).collect(),
-        process: Process {
-            service: span.process.service,
-            tags: span.process.tags.into_iter().map(tag).collect(),
-        },
+        process: process(span.process),
     }
 }
 
@@ -53,31 +50,42 @@ fn tag(tag: quiver::Tag) -> Tag {
 fn log(log: quiver::Log) -> Log {
     Log {
         timestamp: log.timestamp,
-        fields: log
-            .fields
-            .into_iter()
-            .map(tag)
-            .chain([
-                Tag {
-                    key: "level".to_owned(),
-                    value: TagValue::String(
-                        match log.level {
-                            quiver::LogLevel::Trace => "TRACE",
-                            quiver::LogLevel::Debug => "DEBUG",
-                            quiver::LogLevel::Info => "INFO",
-                            quiver::LogLevel::Warn => "WARN",
-                            quiver::LogLevel::Error => "ERROR",
-                        }
-                        .to_owned(),
-                    ),
-                },
-                Tag {
-                    key: "target".to_owned(),
-                    value: TagValue::String(log.target),
-                },
-            ])
-            .chain(location(log.location).into_iter().flatten())
-            .collect(),
+        fields: [
+            Tag {
+                key: "level".to_owned(),
+                value: TagValue::String(
+                    match log.level {
+                        quiver::LogLevel::Trace => "TRACE",
+                        quiver::LogLevel::Debug => "DEBUG",
+                        quiver::LogLevel::Info => "INFO",
+                        quiver::LogLevel::Warn => "WARN",
+                        quiver::LogLevel::Error => "ERROR",
+                    }
+                    .to_owned(),
+                ),
+            },
+            Tag {
+                key: "target".to_owned(),
+                value: TagValue::String(log.target),
+            },
+        ]
+        .into_iter()
+        .chain(location(log.location).into_iter().flatten())
+        .chain(log.fields.into_iter().map(tag))
+        .collect(),
+    }
+}
+
+fn process(process: quiver::Process) -> Process {
+    Process {
+        service: process.service,
+        tags: [Tag {
+            key: "service.version".to_owned(),
+            value: TagValue::String(process.version),
+        }]
+        .into_iter()
+        .chain(process.tags.into_iter().map(tag))
+        .collect(),
     }
 }
 

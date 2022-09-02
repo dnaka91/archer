@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     num::{NonZeroU128, NonZeroU64},
+    sync::Arc,
 };
 
 use serde::Serialize;
@@ -71,7 +72,8 @@ pub enum LogLevel {
 
 #[derive(Debug, Serialize)]
 pub struct Process<'a> {
-    pub service: Cow<'a, str>,
+    pub service: Arc<str>,
+    pub version: Arc<str>,
     pub tags: Vec<Tag<'a>>,
 }
 
