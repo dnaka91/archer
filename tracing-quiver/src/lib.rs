@@ -47,7 +47,7 @@ struct SpanBuilder {
     parent: Option<models::Reference>,
     start_time: OffsetDateTime,
     end_time: OffsetDateTime,
-    location: [Option<models::Tag<'static>>; 3],
+    location: Option<models::Location<'static>>,
     thread: Thread,
     thread_id: Option<u64>,
     tags: Vec<models::Tag<'static>>,
@@ -79,21 +79,12 @@ impl SpanBuilder {
     }
 }
 
-fn location_from_meta<'a>(meta: &Metadata<'a>) -> [Option<models::Tag<'a>>; 3] {
-    [
-        meta.file().map(|file| models::Tag {
-            key: "code.filepath".into(),
-            value: models::TagValue::String(file.into()),
-        }),
-        meta.module_path().map(|path| models::Tag {
-            key: "code.namespace".into(),
-            value: models::TagValue::String(path.into()),
-        }),
-        meta.line().map(|line| models::Tag {
-            key: "code.lineno".into(),
-            value: models::TagValue::I64(line.into()),
-        }),
-    ]
+fn location_from_meta<'a>(meta: &Metadata<'a>) -> Option<models::Location<'a>> {
+    Some(models::Location {
+        filepath: meta.file()?.into(),
+        namespace: meta.module_path()?.into(),
+        lineno: meta.line()?,
+    })
 }
 
 impl<S> Layer<S> for QuiverLayer<S>
@@ -175,19 +166,17 @@ where
             if let Some(builder) = extensions.get_mut::<SpanBuilder>() {
                 let mut log = models::Log {
                     timestamp: OffsetDateTime::now_utc(),
-                    fields: Vec::with_capacity(5 + event.fields().count()),
+                    level: match *event.metadata().level() {
+                        tracing::Level::TRACE => models::LogLevel::Trace,
+                        tracing::Level::DEBUG => models::LogLevel::Debug,
+                        tracing::Level::INFO => models::LogLevel::Info,
+                        tracing::Level::WARN => models::LogLevel::Warn,
+                        tracing::Level::ERROR => models::LogLevel::Error,
+                    },
+                    target: event.metadata().target().into(),
+                    location: location_from_meta(event.metadata()),
+                    fields: Vec::with_capacity(event.fields().count()),
                 };
-
-                log.fields.push(models::Tag {
-                    key: "level".into(),
-                    value: models::TagValue::String(event.metadata().level().as_str().into()),
-                });
-                log.fields.push(models::Tag {
-                    key: "target".into(),
-                    value: models::TagValue::String(event.metadata().target().into()),
-                });
-                log.fields
-                    .extend(location_from_meta(event.metadata()).into_iter().flatten());
 
                 event.record(&mut SpanAttributeVisitor(&mut log.fields));
                 builder.logs.push(log);
@@ -242,29 +231,19 @@ where
                 references: builder.parent.into_iter().collect(),
                 start: builder.start_time,
                 duration: builder.end_time - builder.start_time,
-                tags: [
-                    Some(models::Tag {
-                        key: "busy_ns".into(),
-                        value: models::TagValue::I64(timings.busy.whole_nanoseconds() as _),
-                    }),
-                    Some(models::Tag {
-                        key: "idle_ns".into(),
-                        value: models::TagValue::I64(timings.idle.whole_nanoseconds() as _),
-                    }),
-                    builder.thread_id.map(|id| models::Tag {
-                        key: "thread.id".into(),
-                        value: models::TagValue::I64(id as _),
-                    }),
-                    builder.thread.name().map(|name| models::Tag {
-                        key: "thread.name".into(),
-                        value: models::TagValue::String(name.into()),
-                    }),
-                ]
-                .into_iter()
-                .chain(builder.location.into_iter())
-                .flatten()
-                .chain(builder.tags.into_iter())
-                .collect(),
+                location: builder.location,
+                timing: models::Timing {
+                    busy: timings.busy,
+                    idle: timings.idle,
+                },
+                thread: builder
+                    .thread_id
+                    .zip(builder.thread.name())
+                    .map(|(id, name)| models::Thread {
+                        id,
+                        name: name.into(),
+                }),
+                tags: builder.tags,
                 logs: builder.logs,
                 process: models::Process {
                     service: "simple".into(),

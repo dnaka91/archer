@@ -45,6 +45,8 @@ pub enum TagValue {
     String(String),
     Bool(bool),
     I64(i64),
+    I128(i128),
+    U64(u64),
     F64(f64),
     Binary(Vec<u8>),
 }

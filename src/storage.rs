@@ -265,6 +265,8 @@ fn span_contains_tag(span: &Span, filter: &HashMap<String, String>) -> bool {
                 TagValue::String(s) => value == s,
                 TagValue::Bool(b) => value == if *b { "true" } else { "false" },
                 TagValue::I64(i) => value == &i.to_string(),
+                TagValue::I128(i) => value == &i.to_string(),
+                TagValue::U64(u) => value == &u.to_string(),
                 TagValue::F64(f) => value == &f.to_string(),
                 TagValue::Binary(b) => value == &hex::encode(b),
             },

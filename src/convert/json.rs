@@ -60,6 +60,7 @@ fn duration(duration: Duration) -> i128 {
     duration.whole_microseconds()
 }
 
+#[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 fn key_value(kv: Tag) -> json::KeyValue {
     json::KeyValue {
         key: kv.key,
@@ -67,6 +68,8 @@ fn key_value(kv: Tag) -> json::KeyValue {
             TagValue::String(s) => json::Value::String(s),
             TagValue::Bool(b) => json::Value::Bool(b),
             TagValue::I64(i) => json::Value::Int64(i),
+            TagValue::I128(i) => json::Value::Int64(i as _),
+            TagValue::U64(u) => json::Value::Int64(u as _),
             TagValue::F64(f) => json::Value::Float64(f),
             TagValue::Binary(b) => json::Value::Binary(b),
         },
