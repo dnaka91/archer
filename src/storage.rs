@@ -1,24 +1,32 @@
 use std::{collections::HashMap, rc::Rc, sync::Arc};
 
 use anyhow::{anyhow, Context, Result};
-use rusqlite::{named_params, params, types::Value, Connection};
+use once_cell::sync::OnceCell;
+use rusqlite::{named_params, params, types::Value, Connection, OpenFlags};
 use time::{Duration, OffsetDateTime};
 use tokio::sync::Mutex;
 use tracing::instrument;
-use unidirs::{Directories, UnifiedDirs, Utf8PathBuf};
+use unidirs::{Directories, UnifiedDirs, Utf8Path, Utf8PathBuf};
 
 use crate::models::{Span, TagValue, TraceId};
+
+const BASIC_OPEN_FLAGS: OpenFlags = OpenFlags::SQLITE_OPEN_NO_MUTEX
+    .union(OpenFlags::SQLITE_OPEN_PRIVATE_CACHE)
+    .union(OpenFlags::SQLITE_OPEN_EXRESCODE);
 
 #[derive(Clone)]
 pub struct Database(Arc<Mutex<Connection>>);
 
 pub async fn init() -> Result<Database> {
     let conn = tokio::task::spawn_blocking(|| {
-        let path = get_db_path()?;
-        let mut conn = Connection::open(path)?;
+        let mut conn = Connection::open_with_flags(
+            get_db_path()?,
+            BASIC_OPEN_FLAGS
+                .union(OpenFlags::SQLITE_OPEN_READ_WRITE)
+                .union(OpenFlags::SQLITE_OPEN_CREATE),
+        )?;
 
         conn.trace(Some(|sql| tracing::trace!("{sql}")));
-        rusqlite::vtab::array::load_module(&conn)?;
         conn.execute_batch(include_str!("queries/00_pragmas.sql"))?;
         conn.execute_batch(include_str!("queries/01_create.sql"))?;
 
@@ -29,30 +37,66 @@ pub async fn init() -> Result<Database> {
     Ok(Database(Arc::new(Mutex::new(conn))))
 }
 
-fn get_db_path() -> Result<Utf8PathBuf> {
-    let dirs = UnifiedDirs::simple("rocks", "dnaka91", env!("CARGO_PKG_NAME"))
-        .default()
-        .context("failed finding project directories")?;
-    let data_dir = dirs.data_dir();
+#[derive(Clone)]
+pub struct ReadOnlyDatabase(Arc<Mutex<Connection>>);
 
-    std::fs::create_dir_all(&data_dir)?;
+pub async fn init_readonly() -> Result<ReadOnlyDatabase> {
+    let conn = tokio::task::spawn_blocking(|| {
+        let mut conn = Connection::open_with_flags(
+            get_db_path()?,
+            BASIC_OPEN_FLAGS.union(OpenFlags::SQLITE_OPEN_READ_ONLY),
+        )?;
 
-    Ok(data_dir.join("db.sqlite3"))
+        conn.trace(Some(|sql| tracing::trace!("{sql}")));
+        rusqlite::vtab::array::load_module(&conn)?;
+
+        anyhow::Ok(conn)
+    })
+    .await??;
+
+    Ok(ReadOnlyDatabase(Arc::new(Mutex::new(conn))))
+}
+
+fn get_db_path() -> Result<&'static Utf8Path> {
+    static PATH: OnceCell<Utf8PathBuf> = OnceCell::new();
+
+    let path = PATH.get_or_try_init(|| {
+        let dirs = UnifiedDirs::simple("rocks", "dnaka91", env!("CARGO_PKG_NAME"))
+            .default()
+            .context("failed finding project directories")?;
+        let data_dir = dirs.data_dir();
+
+        std::fs::create_dir_all(&data_dir)?;
+
+        anyhow::Ok(data_dir.join("db.sqlite3"))
+    })?;
+
+    Ok(path)
+}
+
+async fn interact<F, T, E>(conn: &Arc<Mutex<Connection>>, f: F) -> Result<T>
+where
+    F: FnOnce(&mut Connection) -> Result<T, E> + Send + 'static,
+    T: Send + 'static,
+    E: Into<anyhow::Error> + Send + Sync + 'static,
+{
+    let mut conn = Arc::clone(conn).lock_owned().await;
+
+    tokio::task::spawn_blocking(move || f(&mut conn))
+        .await
+        .map_err(|e| anyhow!("{e}"))?
+        .map_err(Into::into)
 }
 
 impl Database {
+    #[inline]
     async fn interact<F, T, E>(&self, f: F) -> Result<T>
     where
         F: FnOnce(&mut Connection) -> Result<T, E> + Send + 'static,
         T: Send + 'static,
         E: Into<anyhow::Error> + Send + Sync + 'static,
     {
-        let mut conn = Arc::clone(&self.0).lock_owned().await;
-
-        tokio::task::spawn_blocking(move || f(&mut conn))
-            .await
-            .map_err(|e| anyhow!("{e}"))?
-            .map_err(Into::into)
+        interact(&self.0, f).await
     }
 
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
@@ -99,6 +143,18 @@ impl Database {
             conn.commit().map_err(Into::into)
         })
         .await
+    }
+}
+
+impl ReadOnlyDatabase {
+    #[inline]
+    async fn interact<F, T, E>(&self, f: F) -> Result<T>
+    where
+        F: FnOnce(&mut Connection) -> Result<T, E> + Send + 'static,
+        T: Send + 'static,
+        E: Into<anyhow::Error> + Send + Sync + 'static,
+    {
+        interact(&self.0, f).await
     }
 
     #[instrument(skip_all)]

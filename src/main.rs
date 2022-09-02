@@ -22,6 +22,7 @@ mod tracer;
 #[tokio::main]
 async fn main() -> Result<()> {
     let database = storage::init().await?;
+    let database_ro = storage::init_readonly().await?;
     let shutdown = Shutdown::new()?;
 
     let tracer = tracer::install_batch(
@@ -63,7 +64,7 @@ async fn main() -> Result<()> {
         ))),
         flatten(tokio::spawn(jaeger::query::run(
             shutdown.clone(),
-            database.clone()
+            database_ro
         ))),
         flatten(tokio::spawn(otel::collector::run(
             shutdown.clone(),

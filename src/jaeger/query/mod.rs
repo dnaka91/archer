@@ -26,13 +26,13 @@ use tracing::{error, info, instrument};
 
 use crate::{
     convert, net,
-    storage::{Database, ListSpansParams},
+    storage::{ListSpansParams, ReadOnlyDatabase},
 };
 
 mod de;
 
 #[instrument(name = "query", skip_all)]
-pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
+pub async fn run(shutdown: Shutdown, database: ReadOnlyDatabase) -> Result<()> {
     let app = Router::new()
         .route("/api/services", get(services))
         .route("/api/services/:service/operations", get(operations))
@@ -66,7 +66,9 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
 }
 
 #[instrument(skip_all)]
-async fn services(Extension(db): Extension<Database>) -> Result<impl IntoResponse, ApiError> {
+async fn services(
+    Extension(db): Extension<ReadOnlyDatabase>,
+) -> Result<impl IntoResponse, ApiError> {
     db.list_services()
         .await
         .map(ApiResponse::Data)
@@ -76,7 +78,7 @@ async fn services(Extension(db): Extension<Database>) -> Result<impl IntoRespons
 #[instrument(skip_all)]
 async fn operations(
     Path(service): Path<String>,
-    Extension(db): Extension<Database>,
+    Extension(db): Extension<ReadOnlyDatabase>,
 ) -> Result<impl IntoResponse, ApiError> {
     db.list_operations(service)
         .await
@@ -143,7 +145,7 @@ struct TraceIdsQuery(#[serde(deserialize_with = "de::trace_ids")] Vec<TraceId>);
 async fn traces(
     query: Result<Query<TracesQuery>, QueryRejection>,
     trace_ids: Option<Query<TraceIdsQuery>>,
-    Extension(db): Extension<Database>,
+    Extension(db): Extension<ReadOnlyDatabase>,
 ) -> Result<impl IntoResponse, ApiError> {
     let spans = match (query, trace_ids) {
         (Ok(Query(query)), None) => {
@@ -197,7 +199,7 @@ async fn traces(
 #[instrument(skip_all)]
 async fn trace(
     Path(trace_id): Path<TraceId>,
-    Extension(db): Extension<Database>,
+    Extension(db): Extension<ReadOnlyDatabase>,
 ) -> Result<impl IntoResponse, ApiError> {
     let spans = db
         .find_trace(trace_id.0.into())
