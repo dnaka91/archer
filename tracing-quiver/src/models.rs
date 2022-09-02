@@ -3,10 +3,10 @@ use std::{
     num::{NonZeroU128, NonZeroU64},
 };
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use time::{Duration, OffsetDateTime};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub struct Span<'a> {
     pub trace_id: NonZeroU128,
     pub span_id: NonZeroU64,
@@ -20,26 +20,26 @@ pub struct Span<'a> {
     pub process: Process<'a>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub struct Reference {
     pub ty: RefType,
     pub trace_id: NonZeroU128,
     pub span_id: NonZeroU64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub enum RefType {
     ChildOf,
     FollowsFrom,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub struct Tag<'a> {
     pub key: Cow<'static, str>,
     pub value: TagValue<'a>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub enum TagValue<'a> {
     String(Cow<'a, str>),
     Bool(bool),
@@ -48,13 +48,13 @@ pub enum TagValue<'a> {
     Binary(Vec<u8>),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub struct Log<'a> {
     pub timestamp: OffsetDateTime,
     pub fields: Vec<Tag<'a>>,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub struct Process<'a> {
     pub service: Cow<'a, str>,
     pub tags: Vec<Tag<'a>>,
