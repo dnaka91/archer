@@ -28,7 +28,7 @@ RUN echo 'deb http://deb.debian.org/debian bookworm main' >> /etc/apt/sources.li
     apt-get install -y --no-install-recommends \
     libprotobuf-dev=3.12.4-1+b4 \
     protobuf-compiler=3.12.4-1+b4 \
-    thrift-compiler=0.16.0-5
+    thrift-compiler=0.16.0-6
 
 COPY --from=planner /volume/recipe.json recipe.json
 
