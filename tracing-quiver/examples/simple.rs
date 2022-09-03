@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use anyhow::Result;
-use tracing::{debug_span, info, instrument, warn};
-use tracing_subscriber::prelude::*;
+use tracing::{debug_span, info, instrument, warn, Level};
+use tracing_subscriber::{filter::Targets, prelude::*};
 
 const CERTIFICATE: &str = "-----BEGIN CERTIFICATE-----
 MIIBWzCCAQCgAwIBAgIIOuisjYJ/sCwwCgYIKoZIzj0EAwIwITEfMB0GA1UEAwwW
@@ -17,7 +17,7 @@ DlljIQNJ6cCTK33ar8fJ
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let (layer, handle) = tracing_quiver::builder()
+    let (quiver, handle) = tracing_quiver::builder()
         .with_server_cert(CERTIFICATE)
         .with_resource(env!("CARGO_CRATE_NAME"), env!("CARGO_PKG_VERSION"))
         .build()
@@ -25,13 +25,19 @@ async fn main() -> Result<()> {
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())
-        .with(layer)
+        .with(quiver)
+        .with(
+            Targets::new()
+                .with_default(Level::WARN)
+                .with_target(env!("CARGO_CRATE_NAME"), Level::TRACE)
+                .with_target("tracing_quiver", Level::TRACE),
+        )
         .init();
 
     greet();
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
-    handle.shutdown().await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    handle.shutdown(Duration::from_secs(1)).await;
 
     Ok(())
 }

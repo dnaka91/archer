@@ -8,20 +8,20 @@ use serde::Serialize;
 use time::{Duration, OffsetDateTime};
 
 #[derive(Debug, Serialize)]
-pub struct Span<'a> {
+pub struct Span {
     pub trace_id: NonZeroU128,
     pub span_id: NonZeroU64,
-    pub operation_name: Cow<'a, str>,
+    pub operation_name: Cow<'static, str>,
     pub flags: u32,
     pub references: Vec<Reference>,
     pub start: OffsetDateTime,
     pub duration: Duration,
     pub timing: Timing,
-    pub location: Option<Location<'a>>,
-    pub thread: Option<Thread<'a>>,
-    pub tags: Vec<Tag<'a>>,
-    pub logs: Vec<Log<'a>>,
-    pub process: Process<'a>,
+    pub location: Option<Location>,
+    pub thread: Option<Thread>,
+    pub tags: Vec<Tag>,
+    pub logs: Vec<Log>,
+    pub process: Process,
 }
 
 #[derive(Debug, Serialize)]
@@ -38,29 +38,29 @@ pub enum RefType {
 }
 
 #[derive(Debug, Serialize)]
-pub struct Tag<'a> {
+pub struct Tag {
     pub key: Cow<'static, str>,
-    pub value: TagValue<'a>,
+    pub value: TagValue,
 }
 
 #[derive(Debug, Serialize)]
-pub enum TagValue<'a> {
+pub enum TagValue {
     F64(f64),
     I64(i64),
     U64(u64),
     I128(i128),
     U128(u128),
     Bool(bool),
-    String(Cow<'a, str>),
+    String(Cow<'static, str>),
 }
 
 #[derive(Debug, Serialize)]
-pub struct Log<'a> {
+pub struct Log {
     pub timestamp: OffsetDateTime,
     pub level: LogLevel,
-    pub target: Cow<'a, str>,
-    pub location: Option<Location<'a>>,
-    pub fields: Vec<Tag<'a>>,
+    pub target: Cow<'static, str>,
+    pub location: Option<Location>,
+    pub fields: Vec<Tag>,
 }
 
 #[derive(Debug, Serialize)]
@@ -73,16 +73,16 @@ pub enum LogLevel {
 }
 
 #[derive(Debug, Serialize)]
-pub struct Process<'a> {
+pub struct Process {
     pub service: Arc<str>,
     pub version: Arc<str>,
-    pub tags: Vec<Tag<'a>>,
+    pub tags: Vec<Tag>,
 }
 
 #[derive(Debug, Serialize)]
-pub struct Location<'a> {
-    pub filepath: Cow<'a, str>,
-    pub namespace: Cow<'a, str>,
+pub struct Location {
+    pub filepath: Cow<'static, str>,
+    pub namespace: Cow<'static, str>,
     pub lineno: u32,
 }
 
@@ -93,7 +93,7 @@ pub struct Timing {
 }
 
 #[derive(Debug, Serialize)]
-pub struct Thread<'a> {
+pub struct Thread {
     pub id: u64,
-    pub name: Cow<'a, str>,
+    pub name: Cow<'static, str>,
 }

@@ -4,9 +4,8 @@
 
 use std::{
     borrow::Cow,
-    io::Cursor,
     marker::PhantomData,
-    net::{Ipv4Addr, SocketAddr},
+    net::SocketAddr,
     num::{NonZeroU128, NonZeroU64},
     sync::Arc,
     thread::Thread,
@@ -14,19 +13,26 @@ use std::{
 
 use once_cell::unsync::Lazy;
 use quanta::{Clock, Instant};
-use quinn::{ClientConfig, Connection, Endpoint, NewConnection};
-use rustls::{Certificate, RootCertStore};
 use time::{Duration, OffsetDateTime};
-use tracing::{field::Visit, span, Metadata, Subscriber};
+use tracing::{error, field::Visit, span, Metadata, Subscriber};
 use tracing_subscriber::{layer::Context, registry::LookupSpan, Layer};
 
+pub use crate::connection::{ConnectError, Error};
+
+mod connection;
 mod models;
 
 pub struct QuiverLayer<S> {
-    connection: Connection,
+    connection: connection::Handle,
     clock: Clock,
     resource: Resource,
     _inner: PhantomData<S>,
+}
+
+impl<S> Drop for QuiverLayer<S> {
+    fn drop(&mut self) {
+        self.connection.shutdown_blocking();
+    }
 }
 
 struct Timings {
@@ -52,11 +58,11 @@ struct SpanBuilder {
     parent: Option<models::Reference>,
     start_time: OffsetDateTime,
     end_time: OffsetDateTime,
-    location: Option<models::Location<'static>>,
+    location: Option<models::Location>,
     thread: Thread,
     thread_id: Option<u64>,
-    tags: Vec<models::Tag<'static>>,
-    logs: Vec<models::Log<'static>>,
+    tags: Vec<models::Tag>,
+    logs: Vec<models::Log>,
     follows: Vec<models::Reference>,
 }
 
@@ -86,7 +92,7 @@ impl SpanBuilder {
     }
 }
 
-fn location_from_meta<'a>(meta: &Metadata<'a>) -> Option<models::Location<'a>> {
+fn location_from_meta(meta: &Metadata<'static>) -> Option<models::Location> {
     Some(models::Location {
         filepath: meta.file()?.into(),
         namespace: meta.module_path()?.into(),
@@ -109,14 +115,19 @@ impl Resource {
     }
 }
 
+impl<S> QuiverLayer<S> {
+    fn skip(meta: &tracing::Metadata<'_>) -> bool {
+        let target = meta.target();
+        let target = target.split("::").next().unwrap_or(target);
+
+        matches!(target, env!("CARGO_CRATE_NAME") | "quinn" | "quinn_proto")
+    }
+}
+
 impl<S> Layer<S> for QuiverLayer<S>
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
-    fn enabled(&self, metadata: &tracing::Metadata<'_>, _ctx: Context<'_, S>) -> bool {
-        !metadata.target().starts_with("quinn::") && !metadata.target().starts_with("quinn_proto::")
-    }
-
     fn on_new_span(&self, attrs: &span::Attributes<'_>, id: &span::Id, ctx: Context<'_, S>) {
         thread_local! {
             static THREAD_ID: Lazy<NonZeroU64> = Lazy::new(|| {
@@ -130,6 +141,10 @@ where
 
         let span = ctx.span(id).expect("span not found");
         let mut extensions = span.extensions_mut();
+
+        if Self::skip(span.metadata()) {
+            return;
+        }
 
         if extensions.get_mut::<Timings>().is_none() {
             extensions.insert(Timings::new(&self.clock));
@@ -176,6 +191,10 @@ where
         let span = ctx.span(id).expect("span not found");
         let mut extensions = span.extensions_mut();
 
+        if Self::skip(span.metadata()) {
+            return;
+        }
+
         if let Some(builder) = extensions.get_mut::<SpanBuilder>() {
             values.record(&mut SpanAttributeVisitor(&mut builder.tags));
         }
@@ -184,6 +203,10 @@ where
     fn on_follows_from(&self, id: &span::Id, follows: &span::Id, ctx: Context<'_, S>) {
         let span = ctx.span(id).expect("span not found");
         let mut extensions = span.extensions_mut();
+
+        if Self::skip(span.metadata()) {
+            return;
+        }
 
         let follows_span = ctx.span(follows).expect("follow span not found");
         let follows_extensions = follows_span.extensions();
@@ -200,8 +223,16 @@ where
     }
 
     fn on_event(&self, event: &tracing::Event<'_>, ctx: Context<'_, S>) {
+        if Self::skip(event.metadata()) {
+            return;
+        }
+
         if let Some(span) = ctx.lookup_current() {
             let mut extensions = span.extensions_mut();
+
+            if Self::skip(span.metadata()) {
+                return;
+            }
 
             if let Some(builder) = extensions.get_mut::<SpanBuilder>() {
                 let mut log = models::Log {
@@ -228,6 +259,10 @@ where
         let span = ctx.span(id).expect("span not found");
         let mut extensions = span.extensions_mut();
 
+        if Self::skip(span.metadata()) {
+            return;
+        }
+
         if let Some(timings) = extensions.get_mut::<Timings>() {
             let now = self.clock.now();
             timings.idle += now.duration_since(timings.last);
@@ -238,6 +273,10 @@ where
     fn on_exit(&self, id: &span::Id, ctx: Context<'_, S>) {
         let span = ctx.span(id).expect("span not found");
         let mut extensions = span.extensions_mut();
+
+        if Self::skip(span.metadata()) {
+            return;
+        }
 
         if let Some(timings) = extensions.get_mut::<Timings>() {
             let now = self.clock.now();
@@ -250,6 +289,10 @@ where
         let span = ctx.span(&id).expect("span not found");
         let mut extensions = span.extensions_mut();
 
+        if Self::skip(span.metadata()) {
+            return;
+        }
+
         let builder = extensions
             .remove::<SpanBuilder>()
             .expect("span builder extension missing")
@@ -258,13 +301,11 @@ where
             .remove::<Timings>()
             .expect("timings extension missing");
 
-        let open_uni = self.connection.open_uni();
+        let connection = self.connection.clone();
         let resource = self.resource.clone();
 
         tokio::spawn(async move {
-            let mut send = open_uni.await.unwrap();
-
-            let data = models::Span {
+            let span = models::Span {
                 trace_id: builder.trace_id,
                 span_id: builder.span_id,
                 operation_name: builder.name.into(),
@@ -279,7 +320,7 @@ where
                 },
                 thread: builder
                     .thread_id
-                    .zip(builder.thread.name())
+                    .zip(builder.thread.name().map(ToOwned::to_owned))
                     .map(|(id, name)| models::Thread {
                         id,
                         name: name.into(),
@@ -293,11 +334,9 @@ where
                 },
             };
 
-            let data = rmp_serde::to_vec(&data).unwrap();
-            let data = snap::raw::Encoder::new().compress_vec(&data).unwrap();
-
-            send.write_all(&data).await.unwrap();
-            send.finish().await.unwrap();
+            if let Err(e) = connection.send_span(span).await {
+                error!(error = ?e, "failed to send span data");
+            }
         });
     }
 }
@@ -309,14 +348,12 @@ pub async fn layer<S>(
 }
 
 pub struct Handle {
-    endpoint: Endpoint,
-    connection: Connection,
+    conn: connection::Handle,
 }
 
 impl Handle {
-    pub async fn shutdown(self) {
-        self.connection.close(0u8.into(), b"done");
-        self.endpoint.wait_idle().await;
+    pub async fn shutdown(self, max_wait: std::time::Duration) {
+        self.conn.shutdown(max_wait).await;
     }
 }
 
@@ -369,40 +406,20 @@ impl Builder {
 
     pub async fn build<S>(self) -> Result<(QuiverLayer<S>, Handle), BuildLayerError> {
         let cert_pem = self.cert.ok_or(BuildLayerError::MissingCertificate)?;
-        let mut cert_pem = Cursor::new(cert_pem.as_bytes());
-        let mut certs = RootCertStore::empty();
 
-        for cert in rustls_pemfile::certs(&mut cert_pem)? {
-            certs.add(&Certificate(cert))?;
-        }
+        let endpoint = connection::create_endpoint(cert_pem.as_bytes())?;
+        let connection = connection::create_connection(&endpoint, self.addr, self.name).await?;
 
-        let mut config = ClientConfig::with_root_certificates(certs);
-        Arc::get_mut(&mut config.transport)
-            .expect("failed getting mutable reference to client transport")
-            .max_concurrent_bidi_streams(0_u8.into())
-            .max_concurrent_uni_streams(0_u8.into());
-
-        let mut endpoint = Endpoint::client(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)))?;
-        endpoint.set_default_client_config(config);
-
-        let addr = self
-            .addr
-            .unwrap_or_else(|| (Ipv4Addr::LOCALHOST, 14000).into());
-        let server_name = self.name.unwrap_or_else(|| "localhost".into());
-
-        let NewConnection { connection, .. } = endpoint.connect(addr, &server_name)?.await?;
+        let handle = connection::Handle::new(endpoint, connection);
 
         let layer = QuiverLayer {
-            connection: connection.clone(),
+            connection: handle.clone(),
             clock: self.clock.unwrap_or_else(Clock::new),
             resource: self.resource.unwrap_or_else(Resource::new),
             _inner: PhantomData,
         };
 
-        let handle = Handle {
-            endpoint,
-            connection,
-        };
+        let handle = Handle { conn: handle };
 
         Ok((layer, handle))
     }
@@ -412,14 +429,8 @@ impl Builder {
 pub enum BuildLayerError {
     #[error("the server certificate must be specified")]
     MissingCertificate,
-    #[error("I/O error happened: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("failed loading certificate: {0}")]
-    Webpki(#[from] webpki::Error),
-    #[error("failed to connect to the server: {0}")]
-    Connect(#[from] quinn::ConnectError),
-    #[error("failed to complete connection to the server: {0}")]
-    Connection(#[from] quinn::ConnectionError),
+    #[error("failed to connect to the server")]
+    Connect(#[from] crate::connection::ConnectError),
 }
 
 #[must_use]
@@ -427,7 +438,7 @@ pub fn builder() -> Builder {
     Builder::default()
 }
 
-struct SpanAttributeVisitor<'a>(&'a mut Vec<models::Tag<'static>>);
+struct SpanAttributeVisitor<'a>(&'a mut Vec<models::Tag>);
 
 impl<'a> Visit for SpanAttributeVisitor<'a> {
     fn record_f64(&mut self, field: &tracing::field::Field, value: f64) {

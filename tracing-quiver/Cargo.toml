@@ -17,7 +17,7 @@ serde = { version = "1.0.144", features = ["derive", "rc"] }
 snap = "1.0.5"
 thiserror = "1.0.33"
 time = { version = "0.3.14", features = ["serde"] }
-tokio = { version = "1.21.0", features = ["sync"] }
+tokio = { version = "1.21.0", features = ["sync", "time"] }
 tracing = "0.1.36"
 tracing-subscriber = "0.3.15"
 webpki = "0.22.0"
