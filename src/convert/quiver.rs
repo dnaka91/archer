@@ -38,11 +38,13 @@ fn tag(tag: quiver::Tag) -> Tag {
     Tag {
         key: tag.key,
         value: match tag.value {
-            quiver::TagValue::String(s) => TagValue::String(s),
-            quiver::TagValue::Bool(b) => TagValue::Bool(b),
-            quiver::TagValue::I64(i) => TagValue::I64(i),
             quiver::TagValue::F64(f) => TagValue::F64(f),
-            quiver::TagValue::Binary(b) => TagValue::Binary(b),
+            quiver::TagValue::I64(i) => TagValue::I64(i),
+            quiver::TagValue::U64(u) => TagValue::U64(u),
+            quiver::TagValue::I128(i) => TagValue::I128(i),
+            quiver::TagValue::U128(u) => TagValue::U128(u),
+            quiver::TagValue::Bool(b) => TagValue::Bool(b),
+            quiver::TagValue::String(s) => TagValue::String(s),
         },
     }
 }

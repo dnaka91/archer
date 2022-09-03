@@ -314,12 +314,13 @@ fn span_contains_tag(span: &Span, filter: &HashMap<String, String>) -> bool {
         .chain(span.process.tags.iter())
         .any(|tag| match filter.get(&tag.key) {
             Some(value) => match &tag.value {
-                TagValue::String(s) => value == s,
-                TagValue::Bool(b) => value == if *b { "true" } else { "false" },
-                TagValue::I64(i) => value == &i.to_string(),
-                TagValue::I128(i) => value == &i.to_string(),
-                TagValue::U64(u) => value == &u.to_string(),
                 TagValue::F64(f) => value == &f.to_string(),
+                TagValue::I64(i) => value == &i.to_string(),
+                TagValue::U64(u) => value == &u.to_string(),
+                TagValue::I128(i) => value == &i.to_string(),
+                TagValue::U128(u)=>value == &u.to_string(),
+                TagValue::Bool(b) => value == if *b { "true" } else { "false" },
+                TagValue::String(s) => value == s,
                 TagValue::Binary(b) => value == &hex::encode(b),
             },
             None => false,

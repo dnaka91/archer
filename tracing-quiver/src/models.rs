@@ -45,11 +45,13 @@ pub struct Tag<'a> {
 
 #[derive(Debug, Serialize)]
 pub enum TagValue<'a> {
-    String(Cow<'a, str>),
-    Bool(bool),
-    I64(i64),
     F64(f64),
-    Binary(Vec<u8>),
+    I64(i64),
+    U64(u64),
+    I128(i128),
+    U128(u128),
+    Bool(bool),
+    String(Cow<'a, str>),
 }
 
 #[derive(Debug, Serialize)]

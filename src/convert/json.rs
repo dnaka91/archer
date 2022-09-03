@@ -65,12 +65,13 @@ fn key_value(kv: Tag) -> json::KeyValue {
     json::KeyValue {
         key: kv.key,
         value: match kv.value {
-            TagValue::String(s) => json::Value::String(s),
-            TagValue::Bool(b) => json::Value::Bool(b),
-            TagValue::I64(i) => json::Value::Int64(i),
-            TagValue::I128(i) => json::Value::Int64(i as _),
-            TagValue::U64(u) => json::Value::Int64(u as _),
             TagValue::F64(f) => json::Value::Float64(f),
+            TagValue::I64(i) => json::Value::Int64(i),
+            TagValue::U64(u) => json::Value::Int64(u as _),
+            TagValue::I128(i) => json::Value::Int64(i as _),
+            TagValue::U128(u) => json::Value::Int64(u as _),
+            TagValue::Bool(b) => json::Value::Bool(b),
+            TagValue::String(s) => json::Value::String(s),
             TagValue::Binary(b) => json::Value::Binary(b),
         },
     }

@@ -424,6 +424,27 @@ impl<'a> Visit for SpanAttributeVisitor<'a> {
         });
     }
 
+    fn record_u64(&mut self, field: &tracing::field::Field, value: u64) {
+        self.0.push(models::Tag {
+            key: field.name().into(),
+            value: models::TagValue::U64(value),
+        });
+    }
+
+    fn record_i128(&mut self, field: &tracing::field::Field, value: i128) {
+        self.0.push(models::Tag {
+            key: field.name().into(),
+            value: models::TagValue::I128(value),
+        });
+    }
+
+    fn record_u128(&mut self, field: &tracing::field::Field, value: u128) {
+        self.0.push(models::Tag {
+            key: field.name().into(),
+            value: models::TagValue::U128(value),
+        });
+    }
+
     fn record_bool(&mut self, field: &tracing::field::Field, value: bool) {
         self.0.push(models::Tag {
             key: field.name().into(),
@@ -437,6 +458,15 @@ impl<'a> Visit for SpanAttributeVisitor<'a> {
             value: models::TagValue::String(value.to_owned().into()),
         });
     }
+
+    // TODO: record error
+    // fn record_error(
+    //     &mut self,
+    //     field: &tracing::field::Field,
+    //     value: &(dyn std::error::Error + 'static),
+    // ) {
+    //     self.record_debug(field, &tracing::field::DisplayValue(value))
+    // }
 
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
         self.0.push(models::Tag {

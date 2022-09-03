@@ -42,12 +42,13 @@ pub struct Tag {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum TagValue {
-    String(String),
-    Bool(bool),
-    I64(i64),
-    I128(i128),
-    U64(u64),
     F64(f64),
+    I64(i64),
+    U64(u64),
+    I128(i128),
+    U128(u128),
+    Bool(bool),
+    String(String),
     Binary(Vec<u8>),
 }
 
