@@ -57,6 +57,7 @@ struct SpanBuilder {
     thread_id: Option<u64>,
     tags: Vec<models::Tag<'static>>,
     logs: Vec<models::Log<'static>>,
+    follows: Vec<models::Reference>,
 }
 
 impl SpanBuilder {
@@ -75,6 +76,7 @@ impl SpanBuilder {
             thread_id: None,
             tags: Vec::new(),
             logs: Vec::new(),
+            follows: Vec::new(),
         }
     }
 
@@ -179,6 +181,24 @@ where
         }
     }
 
+    fn on_follows_from(&self, id: &span::Id, follows: &span::Id, ctx: Context<'_, S>) {
+        let span = ctx.span(id).expect("span not found");
+        let mut extensions = span.extensions_mut();
+
+        let follows_span = ctx.span(follows).expect("follow span not found");
+        let follows_extensions = follows_span.extensions();
+
+        if let Some(builder) = extensions.get_mut::<SpanBuilder>() {
+            if let Some(follows_builder) = follows_extensions.get::<SpanBuilder>() {
+                builder.follows.push(models::Reference {
+                    ty: models::RefType::FollowsFrom,
+                    trace_id: follows_builder.trace_id,
+                    span_id: follows_builder.span_id,
+                });
+            }
+        }
+    }
+
     fn on_event(&self, event: &tracing::Event<'_>, ctx: Context<'_, S>) {
         if let Some(span) = ctx.lookup_current() {
             let mut extensions = span.extensions_mut();
@@ -249,7 +269,7 @@ where
                 span_id: builder.span_id,
                 operation_name: builder.name.into(),
                 flags: 1,
-                references: builder.parent.into_iter().collect(),
+                references: builder.parent.into_iter().chain(builder.follows).collect(),
                 start: builder.start_time,
                 duration: builder.end_time - builder.start_time,
                 location: builder.location,
