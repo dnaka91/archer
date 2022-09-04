@@ -17,6 +17,7 @@ base64 = "0.13.0"
 bytes = "1.2.1"
 futures-util = { version = "0.3.24", features = ["sink"] }
 hex = "0.4.3"
+itoa = "1.0.3"
 mime = "0.3.16"
 once_cell = "1.14.0"
 opentelemetry = { version = "0.17.0", features = ["rt-tokio", "trace"] }
@@ -29,6 +30,7 @@ rmp-serde = "1.1.0"
 rusqlite = { version = "0.28.0", features = ["array", "bundled", "time", "trace"] }
 rustls = "0.20.6"
 rustls-pemfile = "1.0.1"
+ryu = "1.0.11"
 serde = { version = "1.0.144", features = ["derive"] }
 serde_json = "1.0.85"
 snap = "1.0.5"

@@ -314,11 +314,26 @@ fn span_contains_tag(span: &Span, filter: &HashMap<String, String>) -> bool {
         .chain(span.process.tags.iter())
         .any(|tag| match filter.get(&tag.key) {
             Some(value) => match &tag.value {
-                TagValue::F64(f) => value == &f.to_string(),
-                TagValue::I64(i) => value == &i.to_string(),
-                TagValue::U64(u) => value == &u.to_string(),
-                TagValue::I128(i) => value == &i.to_string(),
-                TagValue::U128(u)=>value == &u.to_string(),
+                TagValue::F64(f) => {
+                    let mut buf = ryu::Buffer::new();
+                    value == buf.format(*f)
+                }
+                TagValue::I64(i) => {
+                    let mut buf = itoa::Buffer::new();
+                    value == buf.format(*i)
+                }
+                TagValue::U64(u) => {
+                    let mut buf = itoa::Buffer::new();
+                    value == buf.format(*u)
+                }
+                TagValue::I128(i) => {
+                    let mut buf = itoa::Buffer::new();
+                    value == buf.format(*i)
+                }
+                TagValue::U128(u) => {
+                    let mut buf = itoa::Buffer::new();
+                    value == buf.format(*u)
+                }
                 TagValue::Bool(b) => value == if *b { "true" } else { "false" },
                 TagValue::String(s) => value == s,
                 TagValue::Binary(b) => value == &hex::encode(b),
