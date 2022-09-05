@@ -24,4 +24,4 @@ webpki = "0.22.0"
 
 [dev-dependencies]
 anyhow = "1.0.63"
-tokio = { version = "1.21.0", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "1.21.0", features = ["fs", "macros", "rt-multi-thread", "time"] }
