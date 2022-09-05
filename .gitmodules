@@ -1,6 +1,6 @@
 [submodule "jaeger-idl"]
 	path = jaeger-idl
-	url = git@github.com:jaegertracing/jaeger-idl
+	url = https://github.com/jaegertracing/jaeger-idl.git
 [submodule "opentelemetry-proto"]
 	path = opentelemetry-proto
-	url = git@github.com:open-telemetry/opentelemetry-proto
+	url = https://github.com/open-telemetry/opentelemetry-proto.git
