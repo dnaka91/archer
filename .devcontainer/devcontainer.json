@@ -25,6 +25,13 @@
 			]
 		}
 	},
+	"remoteUser": "vscode",
+	"features": {
+		"git": "os-provided",
+		"github-cli": "latest",
+		"fish": "latest",
+		"node": "lts"
+	},
 	"forwardPorts": [
 		6831,
 		6832,
@@ -35,12 +42,30 @@
 		4318,
 		14000
 	],
-	// "postCreateCommand": "rustc --version",
-	"remoteUser": "vscode",
-	"features": {
-		"git": "os-provided",
-		"github-cli": "latest",
-		"fish": "latest",
-		"node": "lts"
+	"portsAttributes": {
+		"4317": {
+			"label": "OTLP Collector gRPC"
+		},
+		"4318": {
+			"label": "OTLP Collector HTTP"
+		},
+		"6831": {
+			"label": "Jaeger Agent Compact"
+		},
+		"6832": {
+			"label": "Jaeger Agent Binary"
+		},
+		"14000": {
+			"label": "Quiver Collector"
+		},
+		"14250": {
+			"label": "Jaeger Collector gRPC"
+		},
+		"14268": {
+			"label": "Jaeger Collector HTTP"
+		},
+		"16686": {
+			"label": "UI"
+		}
 	}
 }
