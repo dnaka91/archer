@@ -1,12 +1,11 @@
-use std::collections::HashMap;
-
 use archer_http as json;
+use bimap::BiHashMap;
 use time::{Duration, OffsetDateTime};
 
 use crate::models::{Log, Process, RefType, Reference, Span, Tag, TagValue, TraceId};
 
 pub fn trace(trace_id: TraceId, spans: impl IntoIterator<Item = Span>) -> json::Trace {
-    let mut processes = HashMap::new();
+    let mut processes = BiHashMap::new();
     let mut counter = 0;
 
     json::Trace {
@@ -18,7 +17,7 @@ pub fn trace(trace_id: TraceId, spans: impl IntoIterator<Item = Span>) -> json::
                 span(s, p)
             })
             .collect(),
-        processes,
+        processes: processes.into_iter().collect(),
         warnings: vec![],
     }
 }
@@ -85,20 +84,24 @@ fn log(log: Log) -> json::Log {
 }
 
 fn process(
-    processes: &mut HashMap<String, json::Process>,
+    processes: &mut BiHashMap<String, json::Process>,
     counter: &mut usize,
     process: Process,
 ) -> json::ProcessId {
-    *counter += 1;
-    let pid = format!("p{counter}");
+    let process = json::Process {
+        service_name: process.service,
+        tags: process.tags.into_iter().map(key_value).collect(),
+    };
 
-    processes.insert(
-        pid.clone(),
-        json::Process {
-            service_name: process.service,
-            tags: process.tags.into_iter().map(key_value).collect(),
-        },
-    );
+    match processes.get_by_right(&process) {
+        Some(id) => id.clone().into(),
+        None => {
+            *counter += 1;
+            let pid = format!("p{counter}");
 
-    pid.into()
+            processes.insert(pid.clone(), process);
+
+            pid.into()
+        }
+    }
 }

@@ -4,7 +4,8 @@ mod serde;
 
 use std::{
     borrow::Cow,
-    collections::HashMap,
+    collections::{hash_map::DefaultHasher, HashMap},
+    hash::{Hash, Hasher},
     num::{NonZeroU128, NonZeroU64, ParseIntError},
     str::FromStr,
 };
@@ -16,6 +17,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use ordered_float::OrderedFloat;
 pub use tower;
 pub use tower_http;
 
@@ -227,7 +229,7 @@ pub enum ReferenceType {
     FollowsFrom,
 }
 
-#[derive(Serialize)]
+#[derive(Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Process {
     pub service_name: String,
@@ -241,7 +243,7 @@ pub struct Log {
     pub fields: Vec<KeyValue>,
 }
 
-#[derive(Serialize)]
+#[derive(Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KeyValue {
     pub key: String,
@@ -257,6 +259,34 @@ pub enum Value {
     Int64(i64),
     Float64(f64),
     Binary(Vec<u8>),
+}
+
+impl Eq for Value {}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::String(l), Self::String(r)) => l == r,
+            (Self::Bool(l), Self::Bool(r)) => l == r,
+            (Self::Int64(l), Self::Int64(r)) => l == r,
+            (Self::Float64(l), Self::Float64(r)) => OrderedFloat(*l) == OrderedFloat(*r),
+            (Self::Binary(l), Self::Binary(r)) => l == r,
+            _ => false,
+        }
+    }
+}
+
+impl Hash for Value {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        match self {
+            Value::String(v) => v.hash(state),
+            Value::Bool(v) => v.hash(state),
+            Value::Int64(v) => v.hash(state),
+            Value::Float64(v) => OrderedFloat(*v).hash(state),
+            Value::Binary(v) => v.hash(state),
+        }
+    }
 }
 
 #[derive(Serialize)]

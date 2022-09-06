@@ -9,6 +9,7 @@ license = "AGPL-3.0-only"
 anyhow = "1.0.63"
 axum = { version = "0.5.15", features = ["headers", "http2"] }
 num-traits = { version = "0.2.15", features = ["i128"] }
+ordered-float = "3.0.0"
 serde = { version = "1.0.144", features = ["derive"] }
 thiserror = "1.0.33"
 tower = "0.4.13"
