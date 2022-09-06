@@ -65,28 +65,16 @@ fn parent_span_id(
     })
 }
 
+#[allow(clippy::cast_sign_loss)]
 fn trace_id(high: i64, low: i64) -> TraceId {
-    #[allow(clippy::cast_sign_loss)]
-    let mut id = NonZeroU128::new((u128::from(high as u64)) << 64 | u128::from(low as u64));
-
-    loop {
-        match id {
-            Some(id) => break id.into(),
-            None => id = NonZeroU128::new(rand::random()),
-        }
-    }
+    NonZeroU128::new((u128::from(high as u64)) << 64 | u128::from(low as u64))
+        .unwrap_or_else(rand::random)
+        .into()
 }
 
+#[allow(clippy::cast_sign_loss)]
 fn span_id(id: i64) -> SpanId {
-    #[allow(clippy::cast_sign_loss)]
-    let mut id = NonZeroU64::new(id as _);
-
-    loop {
-        match id {
-            Some(id) => break id.into(),
-            None => id = NonZeroU64::new(rand::random()),
-        }
-    }
+    NonZeroU64::new(id as _).unwrap_or_else(rand::random).into()
 }
 
 fn span_ref(span_ref: thrift::SpanRef) -> Result<Reference> {

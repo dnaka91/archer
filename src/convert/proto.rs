@@ -25,28 +25,18 @@ fn trace_id(id: Vec<u8>) -> TraceId {
     let mut buf = [0; 16];
     buf.copy_from_slice(&id);
 
-    let mut id = NonZeroU128::new(u128::from_be_bytes(buf));
-
-    loop {
-        match id {
-            Some(id) => break id.into(),
-            None => id = NonZeroU128::new(rand::random()),
-        }
-    }
+    NonZeroU128::new(u128::from_be_bytes(buf))
+        .unwrap_or_else(rand::random)
+        .into()
 }
 
 fn span_id(id: Vec<u8>) -> SpanId {
     let mut buf = [0; 8];
     buf.copy_from_slice(&id);
 
-    let mut id = NonZeroU64::new(u64::from_be_bytes(buf));
-
-    loop {
-        match id {
-            Some(id) => break id.into(),
-            None => id = NonZeroU64::new(rand::random()),
-        }
-    }
+    NonZeroU64::new(u64::from_be_bytes(buf))
+        .unwrap_or_else(rand::random)
+        .into()
 }
 
 fn reference(span_ref: proto::SpanRef) -> Reference {

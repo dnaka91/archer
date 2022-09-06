@@ -169,37 +169,27 @@ fn span2(
 }
 
 fn trace_id(id: &[u8]) -> TraceId {
-    let mut id = (id.len() == 16)
+    (id.len() == 16)
         .then(|| {
             let mut buf = [0; 16];
             buf.copy_from_slice(id);
             NonZeroU128::new(u128::from_be_bytes(buf))
         })
-        .flatten();
-
-    loop {
-        match id {
-            Some(id) => break id.into(),
-            None => id = NonZeroU128::new(rand::random()),
-        }
-    }
+        .flatten()
+        .unwrap_or_else(rand::random)
+        .into()
 }
 
 fn span_id(id: &[u8]) -> SpanId {
-    let mut id = (id.len() == 8)
+    (id.len() == 8)
         .then(|| {
             let mut buf = [0; 8];
             buf.copy_from_slice(id);
             NonZeroU64::new(u64::from_be_bytes(buf))
         })
-        .flatten();
-
-    loop {
-        match id {
-            Some(id) => break id.into(),
-            None => id = NonZeroU64::new(rand::random()),
-        }
-    }
+        .flatten()
+        .unwrap_or_else(rand::random)
+        .into()
 }
 
 fn timestamp(timestamp: u64) -> Result<OffsetDateTime> {
