@@ -6,7 +6,10 @@ use tracing_subscriber::{filter::Targets, prelude::*};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let certificate = concat!(env!("CARGO_MANIFEST_DIR"), "/../.local/data/quiver/cert.pem");
+    let certificate = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../.local/data/quiver/cert.pem"
+    );
     let certificate = tokio::fs::read_to_string(certificate).await?;
 
     let (quiver, handle) = tracing_quiver::builder()
