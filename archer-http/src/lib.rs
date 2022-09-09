@@ -4,8 +4,8 @@ mod serde;
 
 use std::{
     borrow::Cow,
-    collections::{hash_map::DefaultHasher, HashMap},
-    hash::{Hash, Hasher},
+    collections::HashMap,
+    hash::Hash,
     num::{NonZeroU128, NonZeroU64, ParseIntError},
     str::FromStr,
 };
