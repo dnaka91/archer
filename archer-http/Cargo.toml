@@ -6,11 +6,11 @@ edition = "2021"
 license = "AGPL-3.0-only"
 
 [dependencies]
-anyhow = "1.0.63"
-axum = { version = "0.5.15", features = ["headers", "http2"] }
+anyhow = "1.0.65"
+axum = { version = "0.5.16", features = ["headers", "http2"] }
 num-traits = { version = "0.2.15", features = ["i128"] }
-ordered-float = "3.0.0"
-serde = { version = "1.0.144", features = ["derive"] }
-thiserror = "1.0.33"
+ordered-float = "3.1.0"
+serde = { version = "1.0.145", features = ["derive"] }
+thiserror = "1.0.37"
 tower = "0.4.13"
 tower-http = { version = "0.3.4", features = ["compression-gzip", "decompression-gzip", "trace"] }

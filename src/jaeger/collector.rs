@@ -146,7 +146,7 @@ impl ThriftDeserialize for archer_thrift::jaeger::Batch {
         R: Read,
     {
         let mut prot = TBinaryInputProtocol::new(data, true);
-        Self::read_from_in_protocol(&mut prot)
+        archer_thrift::jaeger::read_batch(&mut prot)
     }
 }
 

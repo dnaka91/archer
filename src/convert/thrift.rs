@@ -1,6 +1,6 @@
 use std::num::{NonZeroU128, NonZeroU64};
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use archer_thrift::jaeger as thrift;
 use time::{Duration, OffsetDateTime};
 
@@ -20,27 +20,18 @@ pub fn span(span: thrift::Span, process: thrift::Process) -> Result<Span> {
         trace_id: trace_id(span.trace_id_high, span.trace_id_low),
         span_id: span_id(span.span_id),
         operation_name: span.operation_name,
-        references: parent
-            .into_iter()
-            .chain(references)
-            .map(span_ref)
-            .collect::<Result<_>>()?,
+        references: parent.into_iter().chain(references).map(span_ref).collect(),
         flags: span.flags as _,
         start: timestamp(span.start_time)?,
         duration: duration(span.duration),
-        tags: span
-            .tags
-            .unwrap_or_default()
-            .into_iter()
-            .map(tag)
-            .collect::<Result<_>>()?,
+        tags: span.tags.unwrap_or_default().into_iter().map(tag).collect(),
         logs: span
             .logs
             .unwrap_or_default()
             .into_iter()
             .map(log)
             .collect::<Result<_>>()?,
-        process: self::process(process)?,
+        process: self::process(process),
     })
 }
 
@@ -61,7 +52,7 @@ fn parent_span_id(
         trace_id_high: trace_id.0,
         trace_id_low: trace_id.1,
         span_id,
-        ref_type: thrift::SpanRefType::CHILD_OF,
+        ref_type: thrift::SpanRefType::ChildOf,
     })
 }
 
@@ -77,26 +68,25 @@ fn span_id(id: i64) -> SpanId {
     NonZeroU64::new(id as _).unwrap_or_else(rand::random).into()
 }
 
-fn span_ref(span_ref: thrift::SpanRef) -> Result<Reference> {
-    Ok(Reference {
-        ty: span_ref_type(span_ref.ref_type)?,
+fn span_ref(span_ref: thrift::SpanRef) -> Reference {
+    Reference {
+        ty: span_ref_type(span_ref.ref_type),
         trace_id: trace_id(span_ref.trace_id_high, span_ref.trace_id_low),
         span_id: span_id(span_ref.span_id),
-    })
+    }
 }
 
-fn span_ref_type(ty: thrift::SpanRefType) -> Result<RefType> {
-    Ok(match ty {
-        thrift::SpanRefType::CHILD_OF => RefType::ChildOf,
-        thrift::SpanRefType::FOLLOWS_FROM => RefType::FollowsFrom,
-        _ => bail!("invalid span reference type {ty:?}"),
-    })
+fn span_ref_type(ty: thrift::SpanRefType) -> RefType {
+    match ty {
+        thrift::SpanRefType::ChildOf => RefType::ChildOf,
+        thrift::SpanRefType::FollowsFrom => RefType::FollowsFrom,
+    }
 }
 
 fn log(log: thrift::Log) -> Result<Log> {
     Ok(Log {
         timestamp: timestamp(log.timestamp)?,
-        fields: log.fields.into_iter().map(tag).collect::<Result<_>>()?,
+        fields: log.fields.into_iter().map(tag).collect(),
     })
 }
 
@@ -108,40 +98,39 @@ fn duration(microseconds: i64) -> Duration {
     Duration::microseconds(microseconds)
 }
 
-fn process(process: thrift::Process) -> Result<Process> {
-    Ok(Process {
+fn process(process: thrift::Process) -> Process {
+    Process {
         service: process.service_name,
         tags: process
             .tags
             .unwrap_or_default()
             .into_iter()
             .map(tag)
-            .collect::<Result<_>>()?,
-    })
+            .collect(),
+    }
 }
 
-fn tag(tag: thrift::Tag) -> Result<Tag> {
-    Ok(match tag.v_type {
-        thrift::TagType::BOOL => Tag {
+fn tag(tag: thrift::Tag) -> Tag {
+    match tag.v_type {
+        thrift::TagType::Bool => Tag {
             key: tag.key,
             value: TagValue::Bool(tag.v_bool.unwrap_or_default()),
         },
-        thrift::TagType::BINARY => Tag {
+        thrift::TagType::Binary => Tag {
             key: tag.key,
             value: TagValue::Binary(tag.v_binary.unwrap_or_default()),
         },
-        thrift::TagType::DOUBLE => Tag {
+        thrift::TagType::Double => Tag {
             key: tag.key,
-            value: TagValue::F64(tag.v_double.unwrap_or_default().0),
+            value: TagValue::F64(tag.v_double.unwrap_or_default()),
         },
-        thrift::TagType::LONG => Tag {
+        thrift::TagType::Long => Tag {
             key: tag.key,
             value: TagValue::I64(tag.v_long.unwrap_or_default()),
         },
-        thrift::TagType::STRING => Tag {
+        thrift::TagType::String => Tag {
             key: tag.key,
             value: TagValue::String(tag.v_str.unwrap_or_default()),
         },
-        v => bail!("invalid tag type `{v:?}`"),
-    })
+    }
 }

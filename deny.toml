@@ -9,6 +9,7 @@ exceptions = [
     { allow = ["AGPL-3.0"], name = "archer-http" },
     { allow = ["AGPL-3.0"], name = "archer-proto" },
     { allow = ["AGPL-3.0"], name = "archer-thrift" },
+    { allow = ["AGPL-3.0"], name = "archer-thrift-derive" },
     { allow = ["AGPL-3.0"], name = "tracing-quiver" },
     { allow = ["BSD-2-Clause"], name = "mach" },
     { allow = ["OpenSSL"], name = "ring" },

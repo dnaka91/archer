@@ -10,9 +10,7 @@ use archer_thrift::{
             TBinaryInputProtocol, TBinaryOutputProtocol, TCompactInputProtocol,
             TCompactOutputProtocol,
         },
-        server::TProcessor,
     },
-    zipkincore,
 };
 use bytes::BytesMut;
 use futures_util::{SinkExt, StreamExt};
@@ -147,10 +145,6 @@ async fn run_udp_server(
 struct Handler(Database);
 
 impl AgentSyncHandler for Handler {
-    fn handle_emit_zipkin_batch(&self, _spans: Vec<zipkincore::Span>) -> thrift::Result<()> {
-        Err("not implemented".into())
-    }
-
     #[instrument(skip_all)]
     fn handle_emit_batch(&self, batch: jaeger::Batch) -> thrift::Result<()> {
         let spans = batch

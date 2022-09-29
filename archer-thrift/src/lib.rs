@@ -3,16 +3,13 @@
 #![allow(unused_extern_crates)]
 #![allow(clippy::too_many_arguments, clippy::type_complexity, clippy::vec_box)]
 
+mod models;
+
+pub use models::agent;
+pub use models::jaeger;
 pub use thrift;
+use thrift::protocol::TInputProtocol;
 
-pub mod agent {
-    include!(concat!(env!("OUT_DIR"), "/agent.rs"));
-}
-
-pub mod jaeger {
-    include!(concat!(env!("OUT_DIR"), "/jaeger.rs"));
-}
-
-pub mod zipkincore {
-    include!(concat!(env!("OUT_DIR"), "/zipkincore.rs"));
+trait ThriftDeserialize: Sized {
+    fn read(prot: &mut impl TInputProtocol) -> thrift::Result<Self>;
 }

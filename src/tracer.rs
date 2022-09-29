@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::Result;
+use futures_util::future::BoxFuture;
 use opentelemetry::{
     global, runtime,
     sdk::{
@@ -12,9 +13,10 @@ use opentelemetry::{
         trace::{self as sdktrace, Tracer, TracerProvider},
     },
     trace::{self, TraceError, TracerProvider as _},
-    Array, KeyValue, Value,
+    Array, KeyValue, StringValue, Value,
 };
 use opentelemetry_semantic_conventions::resource;
+use serde::Serialize;
 use time::OffsetDateTime;
 
 use crate::{
@@ -44,19 +46,21 @@ impl Debug for OtlpSpanExporter {
     }
 }
 
-#[archer_http::axum::async_trait]
 impl SpanExporter for OtlpSpanExporter {
-    async fn export(&mut self, batch: Vec<SpanData>) -> ExportResult {
-        let batch = batch
-            .into_iter()
-            .map(convert_span)
-            .collect::<Result<Vec<_>>>()
-            .map_err(|e| TraceError::Other(e.into()))?;
+    fn export(&mut self, batch: Vec<SpanData>) -> BoxFuture<'static, ExportResult> {
+        let db = self.0.clone();
 
-        self.0
-            .save_spans(batch)
-            .await
-            .map_err(|e| TraceError::Other(e.into()))
+        Box::pin(async move {
+            let batch = batch
+                .into_iter()
+                .map(convert_span)
+                .collect::<Result<Vec<_>>>()
+                .map_err(|e| TraceError::Other(e.into()))?;
+
+            db.save_spans(batch)
+                .await
+                .map_err(|e| TraceError::Other(e.into()))
+        })
     }
 }
 
@@ -103,7 +107,7 @@ fn convert_span(span: SpanData) -> Result<Span> {
                 })
             })
             .collect::<Result<Vec<_>>>()?,
-        process: process(span.resource.as_deref()),
+        process: process(span.resource.as_ref()),
     })
 }
 
@@ -132,8 +136,8 @@ fn span_id(id: trace::SpanId) -> SpanId {
 fn reference(link: trace::Link) -> Reference {
     Reference {
         ty: RefType::FollowsFrom,
-        trace_id: trace_id(link.span_context().trace_id()),
-        span_id: span_id(link.span_context().span_id()),
+        trace_id: trace_id(link.span_context.trace_id()),
+        span_id: span_id(link.span_context.span_id()),
     }
 }
 
@@ -144,43 +148,48 @@ fn tag(kv: KeyValue) -> Option<Tag> {
             Value::Bool(b) => TagValue::Bool(b),
             Value::I64(i) => TagValue::I64(i),
             Value::F64(f) => TagValue::F64(f),
-            Value::String(s) => TagValue::String(s.into_owned()),
+            Value::String(s) => TagValue::String(s.into()),
             Value::Array(a) => TagValue::String(match a {
                 Array::Bool(b) => serde_json::to_string(&b).ok()?,
                 Array::I64(i) => serde_json::to_string(&i).ok()?,
                 Array::F64(f) => serde_json::to_string(&f).ok()?,
-                Array::String(s) => serde_json::to_string(&s).ok()?,
+                Array::String(s) => serde_json::to_string(&SerdeVecStringValue(s)).ok()?,
             }),
         },
     })
 }
 
-fn process(resource: Option<&sdk::Resource>) -> Process {
-    match resource {
-        Some(res) => Process {
-            service: res
-                .iter()
-                .find_map(|(key, value)| {
-                    (key == &resource::SERVICE_NAME).then(|| value.as_str().into_owned())
-                })
-                .unwrap_or_default(),
-            tags: res
-                .into_iter()
-                .filter_map(|(key, value)| {
-                    (key != &resource::SERVICE_NAME)
-                        .then(|| {
-                            tag(KeyValue {
-                                key: key.clone(),
-                                value: value.clone(),
-                            })
+fn process(resource: &sdk::Resource) -> Process {
+    Process {
+        service: resource
+            .iter()
+            .find_map(|(key, value)| {
+                (key == &resource::SERVICE_NAME).then(|| value.as_str().into_owned())
+            })
+            .unwrap_or_default(),
+        tags: resource
+            .into_iter()
+            .filter_map(|(key, value)| {
+                (key != &resource::SERVICE_NAME)
+                    .then(|| {
+                        tag(KeyValue {
+                            key: key.clone(),
+                            value: value.clone(),
                         })
-                        .flatten()
-                })
-                .collect(),
-        },
-        None => Process {
-            service: "OTLPResourceNoServiceName".to_owned(),
-            tags: Vec::new(),
-        },
+                    })
+                    .flatten()
+            })
+            .collect(),
+    }
+}
+
+struct SerdeVecStringValue(Vec<StringValue>);
+
+impl Serialize for SerdeVecStringValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.collect_seq(self.0.iter().map(StringValue::as_str))
     }
 }
