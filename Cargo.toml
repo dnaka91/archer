@@ -1,12 +1,19 @@
 [workspace]
 members = ["archer-http", "archer-proto", "archer-thrift", "archer-thrift-derive", "tracing-quiver"]
 
-[package]
-name = "archer"
+[workspace.package]
 version = "0.1.0"
 authors = ["Dominik Nakamura <dnaka91@gmail.com>"]
 edition = "2021"
 license = "AGPL-3.0-only"
+
+
+[package]
+name = "archer"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
 anyhow = "1.0.65"

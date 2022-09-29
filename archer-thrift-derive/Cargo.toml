@@ -1,9 +1,9 @@
 [package]
 name = "archer-thrift-derive"
-version = "0.1.0"
-authors = ["Dominik Nakamura <dnaka91@gmail.com>"]
-edition = "2021"
-license = "AGPL-3.0-only"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [lib]
 proc-macro = true
