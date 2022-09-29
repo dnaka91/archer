@@ -6,7 +6,7 @@ COPY archer-ui/ ./
 
 RUN yarn install && yarn run build
 
-FROM rust:1.63 as chef
+FROM rust:1.64 as chef
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends musl-tools=1.2.2-1 && \
@@ -23,12 +23,10 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef as builder
 
-RUN echo 'deb http://deb.debian.org/debian bookworm main' >> /etc/apt/sources.list && \
-    apt-get update && \
+RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    libprotobuf-dev=3.12.4-1+b4 \
-    protobuf-compiler=3.12.4-1+b4 \
-    thrift-compiler=0.16.0-6
+    libprotobuf-dev=3.12.4-1 \
+    protobuf-compiler=3.12.4-1
 
 COPY --from=planner /volume/recipe.json recipe.json
 
@@ -37,6 +35,7 @@ RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path r
 COPY archer-http/ archer-http/
 COPY archer-proto/ archer-proto/
 COPY archer-thrift/ archer-thrift/
+COPY archer-thrift-derive/ archer-thrift-derive/
 COPY jaeger-idl/ jaeger-idl/
 COPY opentelemetry-proto/ opentelemetry-proto/
 COPY src/ src/
