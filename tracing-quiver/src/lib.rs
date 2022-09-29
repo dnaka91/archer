@@ -1,5 +1,14 @@
+//! # Tracing Quiver
+//!
+//! Connector for the [`tracing`] framework, that sends data to [Archer], using a custom transport
+//! protocol. It is focused on low overhead and doesn't go through a heavy intermediate layer, like
+//! `OpenTelemetry` or `Jaeger`'s own protocol.
+//!
+//! [Archer]: https://github.com/dnaka91/archer
+
 // #![deny(rust_2018_idioms, clippy::all, clippy::pedantic)]
-// #![warn(clippy::expect_used, clippy::unwrap_used)]
+#![deny(clippy::unwrap_used)]
+// #![warn(missing_docs)]
 #![allow(clippy::missing_errors_doc)]
 
 use std::{
