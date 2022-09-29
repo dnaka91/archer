@@ -5,8 +5,7 @@
 
 mod models;
 
-pub use models::agent;
-pub use models::jaeger;
+pub use models::{agent, jaeger};
 pub use thrift;
 use thrift::protocol::TInputProtocol;
 

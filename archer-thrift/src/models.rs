@@ -5,9 +5,8 @@ pub mod agent {
         ApplicationError, ApplicationErrorKind,
     };
 
-    use crate::ThriftDeserialize;
-
     use super::jaeger::Batch;
+    use crate::ThriftDeserialize;
 
     pub trait AgentSyncHandler {
         fn handle_emit_batch(&self, batch: Batch) -> thrift::Result<()>;

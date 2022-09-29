@@ -93,15 +93,16 @@ fn process(
         tags: process.tags.into_iter().map(key_value).collect(),
     };
 
-    match processes.get_by_right(&process) {
-        Some(id) => id.clone().into(),
-        None => {
+    processes
+        .get_by_right(&process)
+        .cloned()
+        .unwrap_or_else(|| {
             *counter += 1;
             let pid = format!("p{counter}");
 
             processes.insert(pid.clone(), process);
 
-            pid.into()
-        }
-    }
+            pid
+        })
+        .into()
 }

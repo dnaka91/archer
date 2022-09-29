@@ -60,32 +60,29 @@ async fn load_config() -> Result<(ServerConfig, String)> {
     let cert = load_file(data_dir.join("cert.pem")).await?;
     let key = load_file(data_dir.join("key.pem")).await?;
 
-    let (cert, key, cert_pem) = match cert.zip(key) {
-        Some((cert_raw, key_raw)) => {
-            let cert = rustls_pemfile::read_one(&mut Cursor::new(&cert_raw))?
-                .map(|item| match item {
-                    rustls_pemfile::Item::X509Certificate(cert) => Ok(cert),
-                    _ => bail!("not a certificate"),
-                })
-                .context("empty data")??;
-            let key = rustls_pemfile::read_one(&mut Cursor::new(key_raw))?
-                .map(|item| match item {
-                    rustls_pemfile::Item::PKCS8Key(key) => Ok(key),
-                    _ => bail!("not a key"),
-                })
-                .context("empty data")??;
-            let cert_pem = String::from_utf8(cert_raw)?;
+    let (cert, key, cert_pem) = if let Some((cert_raw, key_raw)) = cert.zip(key) {
+        let cert = rustls_pemfile::read_one(&mut Cursor::new(&cert_raw))?
+            .map(|item| match item {
+                rustls_pemfile::Item::X509Certificate(cert) => Ok(cert),
+                _ => bail!("not a certificate"),
+            })
+            .context("empty data")??;
+        let key = rustls_pemfile::read_one(&mut Cursor::new(key_raw))?
+            .map(|item| match item {
+                rustls_pemfile::Item::PKCS8Key(key) => Ok(key),
+                _ => bail!("not a key"),
+            })
+            .context("empty data")??;
+        let cert_pem = String::from_utf8(cert_raw)?;
 
-            (Certificate(cert), PrivateKey(key), cert_pem)
-        }
-        None => {
-            let (cert, cert_pem, key, key_pem) = generate_certificate()?;
-            fs::create_dir_all(&data_dir).await?;
-            fs::write(data_dir.join("cert.pem"), &cert_pem).await?;
-            fs::write(data_dir.join("key.pem"), key_pem).await?;
+        (Certificate(cert), PrivateKey(key), cert_pem)
+    } else {
+        let (cert, cert_pem, key, key_pem) = generate_certificate()?;
+        fs::create_dir_all(&data_dir).await?;
+        fs::write(data_dir.join("cert.pem"), &cert_pem).await?;
+        fs::write(data_dir.join("key.pem"), key_pem).await?;
 
-            (cert, key, cert_pem)
-        }
+        (cert, key, cert_pem)
     };
 
     let mut config = ServerConfig::with_single_cert(vec![cert], key)?;
