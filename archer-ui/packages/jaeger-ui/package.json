@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "jaeger-ui",
-  "version": "1.26.0",
+  "version": "1.27.0",
   "main": "src/index.js",
   "license": "Apache-2.0",
   "homepage": ".",
@@ -42,6 +42,7 @@
   },
   "dependencies": {
     "@jaegertracing/plexus": "0.2.0",
+    "@pyroscope/flamegraph": "0.21.4",
     "@types/classnames": "^2.2.7",
     "@types/deep-freeze": "^0.1.1",
     "@types/history": "^4.7.2",
