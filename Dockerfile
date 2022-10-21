@@ -57,9 +57,15 @@ COPY --from=builder /volume/target/x86_64-unknown-linux-musl/release/archer /bin
 COPY --from=newuser /tmp/group /tmp/passwd /etc/
 COPY --from=newuser --chown=1000 /var/lib/archer /var/lib/
 
+# Jaeger Agent/Collector/Query ports
 EXPOSE 6831 6832
 EXPOSE 14250 14268
 EXPOSE 16686
+# OTLP Collector ports
+EXPOSE 4317 4318
+# Quiver Collector port
+EXPOSE 14000/udp
+
 USER archer
 
 ENTRYPOINT ["/bin/archer"]
