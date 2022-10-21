@@ -3,6 +3,7 @@ use std::{
     net::SocketAddr,
     path::Path,
     sync::Arc,
+    time::Duration,
 };
 
 use anyhow::{bail, Context, Result};
@@ -89,7 +90,9 @@ async fn load_config() -> Result<(ServerConfig, String)> {
     Arc::get_mut(&mut config.transport)
         .context("failed getting mutable reference to server transport")?
         .max_concurrent_bidi_streams(0_u8.into())
-        .datagram_receive_buffer_size(None);
+        .datagram_receive_buffer_size(None)
+        .max_idle_timeout(Some(Duration::from_secs(360).try_into()?))
+        .keep_alive_interval(Some(Duration::from_secs(10)));
 
     Ok((config, cert_pem))
 }
