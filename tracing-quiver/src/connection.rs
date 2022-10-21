@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use quinn::{ClientConfig, Endpoint, NewConnection};
+use quinn::{ClientConfig, Endpoint, NewConnection, VarInt};
 use rustls::{Certificate, RootCertStore};
 use tokio::{
     sync::{mpsc, oneshot},
@@ -199,7 +199,9 @@ pub fn create_endpoint(cert_pem: &[u8]) -> Result<Endpoint, ConnectError> {
     Arc::get_mut(&mut config.transport)
         .expect("failed getting mutable reference to client transport")
         .max_concurrent_bidi_streams(0_u8.into())
-        .max_concurrent_uni_streams(0_u8.into());
+        .max_concurrent_uni_streams(0_u8.into())
+        .max_idle_timeout(Some(VarInt::from_u32(360_000).into()))
+        .keep_alive_interval(Some(Duration::from_secs(30)));
 
     let mut endpoint = Endpoint::client(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)))?;
     endpoint.set_default_client_config(config);

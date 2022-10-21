@@ -8,7 +8,9 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use futures_util::StreamExt;
-use quinn::{Connecting, ConnectionError, Endpoint, NewConnection, RecvStream, ServerConfig};
+use quinn::{
+    Connecting, ConnectionError, Endpoint, NewConnection, RecvStream, ServerConfig, VarInt,
+};
 use rustls::{Certificate, PrivateKey};
 use tokio::fs;
 use tokio_shutdown::Shutdown;
@@ -91,8 +93,8 @@ async fn load_config() -> Result<(ServerConfig, String)> {
         .context("failed getting mutable reference to server transport")?
         .max_concurrent_bidi_streams(0_u8.into())
         .datagram_receive_buffer_size(None)
-        .max_idle_timeout(Some(Duration::from_secs(360).try_into()?))
-        .keep_alive_interval(Some(Duration::from_secs(10)));
+        .max_idle_timeout(Some(VarInt::from_u32(360_000).into()))
+        .keep_alive_interval(Some(Duration::from_secs(30)));
 
     Ok((config, cert_pem))
 }
