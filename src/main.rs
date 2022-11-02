@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
             tracing_subscriber::fmt::layer().with_filter(
                 Targets::new()
                     .with_default(LevelFilter::WARN)
-                    .with_target(env!("CARGO_CRATE_NAME"), LevelFilter::TRACE)
+                    .with_target(env!("CARGO_CRATE_NAME"), LevelFilter::DEBUG)
                     .with_target("tower_http", LevelFilter::DEBUG),
             ),
         )
