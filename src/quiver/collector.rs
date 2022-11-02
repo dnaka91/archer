@@ -7,10 +7,7 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
-use futures_util::StreamExt;
-use quinn::{
-    Connecting, ConnectionError, Endpoint, NewConnection, RecvStream, ServerConfig, VarInt,
-};
+use quinn::{Connecting, ConnectionError, Endpoint, RecvStream, ServerConfig, VarInt};
 use rustls::{Certificate, PrivateKey};
 use tokio::fs;
 use tokio_shutdown::Shutdown;
@@ -23,7 +20,7 @@ use crate::{convert, net, storage::Database};
 pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
     let addr = SocketAddr::from(net::QUIVER_COLLECTOR);
     let (config, cert) = load_config().await?;
-    let (endpoint, mut incoming) = Endpoint::server(config, addr)?;
+    let endpoint = Endpoint::server(config, addr)?;
 
     info!("listening on http://{}", endpoint.local_addr()?);
     info!("server certificate:\n{cert}");
@@ -31,7 +28,7 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
     loop {
         let conn = tokio::select! {
             _ = shutdown.handle() => break,
-            conn = incoming.next() => match conn {
+            conn = endpoint.accept() => match conn {
                 Some(conn) => conn,
                 None => break,
             }
@@ -119,16 +116,12 @@ fn generate_certificate() -> Result<(Certificate, String, PrivateKey, String)> {
 }
 
 async fn handle_connection(conn: Connecting, database: Database) -> Result<()> {
-    let NewConnection {
-        connection,
-        mut uni_streams,
-        ..
-    } = conn.await?;
+    let connection = conn.await?;
 
     debug!(addr = %connection.remote_address(), "connection established");
 
-    while let Some(stream) = uni_streams.next().await {
-        let stream = match stream {
+    loop {
+        let stream = match connection.accept_uni().await {
             Err(ConnectionError::ApplicationClosed(_) | ConnectionError::TimedOut) => return Ok(()),
             Err(e) => return Err(e.into()),
             Ok(s) => s,
@@ -143,8 +136,6 @@ async fn handle_connection(conn: Connecting, database: Database) -> Result<()> {
             }
         });
     }
-
-    Ok(())
 }
 
 async fn handle_request(recv: RecvStream, database: Database) -> Result<()> {

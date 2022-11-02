@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use quinn::{ClientConfig, Endpoint, NewConnection, VarInt};
+use quinn::{ClientConfig, Endpoint, TransportConfig, VarInt};
 use rustls::{Certificate, RootCertStore};
 use tokio::{
     sync::{mpsc, oneshot},
@@ -34,7 +34,7 @@ pub enum Error {
 struct Connection {
     receiver: mpsc::Receiver<Message>,
     endpoint: quinn::Endpoint,
-    conn: quinn::Connection,
+    conn: Arc<quinn::Connection>,
     active_tasks: Arc<AtomicUsize>,
 }
 
@@ -58,7 +58,7 @@ impl Connection {
         Self {
             receiver,
             endpoint,
-            conn,
+            conn: Arc::new(conn),
             active_tasks: Arc::new(AtomicUsize::new(0)),
         }
     }
@@ -66,14 +66,14 @@ impl Connection {
     async fn handle_message(&mut self, msg: Message) -> bool {
         match msg {
             Message::SendSpan { span, respond_to } => {
-                let uni_stream = self.conn.open_uni();
+                let conn = Arc::clone(&self.conn);
                 let active_tasks = Arc::clone(&self.active_tasks);
 
                 active_tasks.fetch_add(1, Ordering::SeqCst);
 
                 tokio::spawn(async move {
                     let result = async {
-                        let mut send = uni_stream.await?;
+                        let mut send = conn.open_uni().await?;
 
                         let data = rmp_serde::to_vec(&span)?;
                         let data = snap::raw::Encoder::new().compress_vec(&data)?;
@@ -196,12 +196,14 @@ pub fn create_endpoint(cert_pem: &[u8]) -> Result<Endpoint, ConnectError> {
     }
 
     let mut config = ClientConfig::with_root_certificates(certs);
-    Arc::get_mut(&mut config.transport)
-        .expect("failed getting mutable reference to client transport")
-        .max_concurrent_bidi_streams(0_u8.into())
-        .max_concurrent_uni_streams(0_u8.into())
-        .max_idle_timeout(Some(VarInt::from_u32(360_000).into()))
-        .keep_alive_interval(Some(Duration::from_secs(30)));
+    config.transport_config(Arc::new({
+        let mut cfg = TransportConfig::default();
+        cfg.max_concurrent_bidi_streams(0_u8.into())
+            .max_concurrent_uni_streams(0_u8.into())
+            .max_idle_timeout(Some(VarInt::from_u32(360_000).into()))
+            .keep_alive_interval(Some(Duration::from_secs(30)));
+        cfg
+    }));
 
     let mut endpoint = Endpoint::client(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)))?;
     endpoint.set_default_client_config(config);
@@ -217,7 +219,5 @@ pub async fn create_connection(
     let addr = addr.unwrap_or_else(|| (Ipv4Addr::LOCALHOST, 14000).into());
     let server_name = name.unwrap_or_else(|| "localhost".into());
 
-    let NewConnection { connection, .. } = endpoint.connect(addr, &server_name)?.await?;
-
-    Ok(connection)
+    Ok(endpoint.connect(addr, &server_name)?.await?)
 }
