@@ -27,11 +27,6 @@ export default deepFreeze(
         dagMaxNumServices: FALLBACK_DAG_MAX_NUM_SERVICES,
         menuEnabled: true,
       },
-      linkPatterns: [],
-      qualityMetrics: {
-        menuEnabled: false,
-        menuLabel: 'Trace Quality',
-      },
       menu: [
         {
           label: 'About Jaeger',
@@ -71,6 +66,7 @@ export default deepFreeze(
         trackErrors: true,
         customWebAnalytics: null,
       },
+      linkPatterns: [],
       monitor: {
         menuEnabled: false,
         emptyState: {
@@ -89,6 +85,13 @@ export default deepFreeze(
           },
         },
         docsLink: 'https://dnaka91.github.io/archer',
+      },
+      deepDependencies: {
+        menuEnabled: false,
+      },
+      qualityMetrics: {
+        menuEnabled: false,
+        menuLabel: 'Trace Quality',
       },
     },
     // fields that should be individually merged vs wholesale replaced
