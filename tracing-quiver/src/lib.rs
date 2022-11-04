@@ -369,7 +369,7 @@ impl Handle {
     }
 }
 
-type Resolve = Pin<Box<dyn Future<Output = std::io::Result<Option<SocketAddr>>>>>;
+type Resolve = Box<dyn Future<Output = std::io::Result<Option<SocketAddr>>> + Send + 'static>;
 
 #[derive(Default)]
 pub struct Builder {
@@ -388,8 +388,8 @@ impl Builder {
     }
 
     #[must_use]
-    pub fn with_server_addr(mut self, addr: impl ToSocketAddrs + 'static) -> Self {
-        self.addr = Some(Box::pin(async move {
+    pub fn with_server_addr(mut self, addr: impl ToSocketAddrs + Send + 'static) -> Self {
+        self.addr = Some(Box::new(async move {
             tokio::net::lookup_host(addr)
                 .await
                 .map(|mut iter| iter.next())
@@ -425,7 +425,9 @@ impl Builder {
     pub async fn build<S>(self) -> Result<(QuiverLayer<S>, Handle), BuildLayerError> {
         let cert_pem = self.cert.ok_or(BuildLayerError::MissingCertificate)?;
         let addr = match self.addr {
-            Some(addr) => addr.await.map_err(BuildLayerError::ResolveAddress)?,
+            Some(addr) => Box::into_pin(addr)
+                .await
+                .map_err(BuildLayerError::ResolveAddress)?,
             None => None,
         };
 
