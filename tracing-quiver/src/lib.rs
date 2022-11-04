@@ -13,9 +13,11 @@
 
 use std::{
     borrow::Cow,
+    future::Future,
     marker::PhantomData,
     net::SocketAddr,
     num::{NonZeroU128, NonZeroU64},
+    pin::Pin,
     sync::Arc,
     thread::Thread,
 };
@@ -23,6 +25,7 @@ use std::{
 use once_cell::unsync::Lazy;
 use quanta::{Clock, Instant};
 use time::{Duration, OffsetDateTime};
+use tokio::net::ToSocketAddrs;
 use tracing::{error, field::Visit, span, Metadata, Subscriber};
 use tracing_subscriber::{layer::Context, registry::LookupSpan, Layer};
 
@@ -366,10 +369,12 @@ impl Handle {
     }
 }
 
+type Resolve = Pin<Box<dyn Future<Output = std::io::Result<Option<SocketAddr>>>>>;
+
 #[derive(Default)]
 pub struct Builder {
     cert: Option<Cow<'static, str>>,
-    addr: Option<SocketAddr>,
+    addr: Option<Resolve>,
     name: Option<Cow<'static, str>>,
     clock: Option<Clock>,
     resource: Option<Resource>,
@@ -383,8 +388,12 @@ impl Builder {
     }
 
     #[must_use]
-    pub fn with_server_addr(mut self, addr: impl Into<SocketAddr>) -> Self {
-        self.addr = Some(addr.into());
+    pub fn with_server_addr(mut self, addr: impl ToSocketAddrs + 'static) -> Self {
+        self.addr = Some(Box::pin(async move {
+            tokio::net::lookup_host(addr)
+                .await
+                .map(|mut iter| iter.next())
+        }));
         self
     }
 
@@ -415,9 +424,13 @@ impl Builder {
 
     pub async fn build<S>(self) -> Result<(QuiverLayer<S>, Handle), BuildLayerError> {
         let cert_pem = self.cert.ok_or(BuildLayerError::MissingCertificate)?;
+        let addr = match self.addr {
+            Some(addr) => addr.await.map_err(BuildLayerError::ResolveAddress)?,
+            None => None,
+        };
 
         let endpoint = connection::create_endpoint(cert_pem.as_bytes())?;
-        let connection = connection::create_connection(&endpoint, self.addr, self.name).await?;
+        let connection = connection::create_connection(&endpoint, addr, self.name).await?;
 
         let handle = connection::Handle::new(endpoint, connection);
 
@@ -438,6 +451,8 @@ impl Builder {
 pub enum BuildLayerError {
     #[error("the server certificate must be specified")]
     MissingCertificate,
+    #[error("failed to resolve the server address")]
+    ResolveAddress(#[source] std::io::Error),
     #[error("failed to connect to the server")]
     Connect(#[from] crate::connection::ConnectError),
 }
