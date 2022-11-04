@@ -6,7 +6,7 @@ COPY archer-ui/ ./
 
 RUN yarn install && yarn run build
 
-FROM rust:1.64 as chef
+FROM rust:1.65 as chef
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends musl-tools=1.2.2-1 && \

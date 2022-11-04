@@ -66,7 +66,7 @@ fn get_db_path() -> Result<&'static Utf8Path> {
             .context("failed finding project directories")?;
         let data_dir = dirs.data_dir();
 
-        std::fs::create_dir_all(&data_dir)?;
+        std::fs::create_dir_all(data_dir)?;
 
         anyhow::Ok(data_dir.join("db.sqlite3"))
     })?;

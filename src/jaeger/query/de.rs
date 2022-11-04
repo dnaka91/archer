@@ -40,7 +40,7 @@ impl<'de> Visitor<'de> for TagsVisitor {
                     map.insert(k.to_owned(), v.to_owned());
                 }
                 "tags" => {
-                    let kvs = serde_json::from_str::<HashMap<_, _>>(&*v)
+                    let kvs = serde_json::from_str::<HashMap<_, _>>(&v)
                         .map_err(|e| de::Error::custom(format!("invalid JSON map: {e}")))?;
 
                     map.extend(kvs);
