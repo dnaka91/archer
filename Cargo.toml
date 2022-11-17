@@ -30,7 +30,7 @@ once_cell = "1.16.0"
 opentelemetry = { version = "0.18.0", features = ["rt-tokio", "trace"] }
 opentelemetry-semantic-conventions = "0.10.0"
 phf = { version = "0.11.1", features = ["macros"] }
-quinn = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls"] }
+quinn = { version = "0.9.1", default-features = false, features = ["runtime-tokio", "tls-rustls"] }
 rand = "0.8.5"
 rcgen = "0.10.0"
 rmp-serde = "1.1.1"

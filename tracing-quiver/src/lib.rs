@@ -17,7 +17,6 @@ use std::{
     marker::PhantomData,
     net::SocketAddr,
     num::{NonZeroU128, NonZeroU64},
-    pin::Pin,
     sync::Arc,
     thread::Thread,
 };

@@ -7,4 +7,4 @@ license.workspace = true
 
 [dependencies]
 archer-thrift-derive = { path = "../archer-thrift-derive" }
-thrift = "0.16.0"
+thrift = "0.17.0"
