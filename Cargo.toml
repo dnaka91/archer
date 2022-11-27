@@ -1,5 +1,5 @@
 [workspace]
-members = ["archer-http", "archer-proto", "archer-thrift", "archer-thrift-derive", "tracing-quiver"]
+members = ["archer-http", "archer-proto", "archer-thrift", "archer-thrift-derive", "tracing-archer"]
 
 [workspace.package]
 version = "0.1.0"

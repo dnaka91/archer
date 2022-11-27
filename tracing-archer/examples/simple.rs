@@ -12,7 +12,7 @@ async fn main() -> Result<()> {
     );
     let certificate = tokio::fs::read_to_string(certificate).await?;
 
-    let (quiver, handle) = tracing_quiver::builder()
+    let (quiver, handle) = tracing_archer::builder()
         .with_server_cert(certificate)
         .with_resource(env!("CARGO_CRATE_NAME"), env!("CARGO_PKG_VERSION"))
         .build()

@@ -1861,6 +1861,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-archer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "once_cell",
+ "quanta",
+ "quinn",
+ "rand",
+ "rmp-serde",
+ "rustls",
+ "rustls-pemfile",
+ "serde",
+ "snap",
+ "thiserror",
+ "time",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "webpki",
+]
+
+[[package]]
 name = "tracing-attributes"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1914,28 +1936,6 @@ dependencies = [
  "tracing-core",
  "tracing-log",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "tracing-quiver"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "once_cell",
- "quanta",
- "quinn",
- "rand",
- "rmp-serde",
- "rustls",
- "rustls-pemfile",
- "serde",
- "snap",
- "thiserror",
- "time",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "webpki",
 ]
 
 [[package]]
