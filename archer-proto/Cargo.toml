@@ -6,9 +6,9 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-prost = "0.11.2"
+prost = "0.11.3"
 prost-types = "0.11.2"
-tonic = { version = "0.8.2", features = ["gzip"] }
+tonic = { version = "0.8.3", features = ["gzip"] }
 
 [build-dependencies]
-tonic-build = "0.8.2"
+tonic-build = "0.8.4"

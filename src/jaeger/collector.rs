@@ -5,11 +5,11 @@ use archer_http::{
     axum::{
         async_trait,
         body::{Bytes, HttpBody},
-        extract::{rejection::BytesRejection, FromRequest, RequestParts},
-        http::StatusCode,
+        extract::{rejection::BytesRejection, FromRequest, State},
+        http::{Request, StatusCode},
         response::{IntoResponse, Response},
         routing::post,
-        BoxError, Extension, Router, Server,
+        BoxError, Router, Server,
     },
     tower::ServiceBuilder,
     tower_http::ServiceBuilderExt,
@@ -60,12 +60,10 @@ async fn run_http(
 ) -> Result<()> {
     info!("listening on http://{addr}");
 
-    let app = Router::new().route("/api/traces", post(traces)).layer(
-        ServiceBuilder::new()
-            .compression()
-            .trace_for_http()
-            .layer(Extension(database)),
-    );
+    let app = Router::new()
+        .route("/api/traces", post(traces))
+        .layer(ServiceBuilder::new().compression().trace_for_http())
+        .with_state(database);
 
     Server::bind(&addr)
         .serve(app.into_make_service())
@@ -78,8 +76,8 @@ async fn run_http(
 }
 
 async fn traces(
+    State(db): State<Database>,
     Thrift(batch): Thrift<Batch>,
-    Extension(db): Extension<Database>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let spans = batch
         .spans
@@ -103,17 +101,18 @@ async fn traces(
 struct Thrift<T>(pub T);
 
 #[async_trait]
-impl<T, B> FromRequest<B> for Thrift<T>
+impl<T, S, B> FromRequest<S, B> for Thrift<T>
 where
     T: ThriftDeserialize,
-    B: HttpBody + Send,
+    B: HttpBody + Send + 'static,
     B::Data: Send,
     B::Error: Into<BoxError>,
+    S: Send + Sync,
 {
     type Rejection = ThriftRejection;
 
-    async fn from_request(req: &mut RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let bytes = Bytes::from_request(req).await?;
+    async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
+        let bytes = Bytes::from_request(req, state).await?;
         let value = T::deserialize(&bytes[..])?;
 
         Ok(Self(value))

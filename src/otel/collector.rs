@@ -5,11 +5,11 @@ use archer_http::{
     axum::{
         async_trait,
         body::{Bytes, HttpBody},
-        extract::{rejection::BytesRejection, FromRequest, RequestParts},
-        http::{header::CONTENT_TYPE, HeaderValue, StatusCode},
+        extract::{rejection::BytesRejection, FromRequest, State},
+        http::{header::CONTENT_TYPE, HeaderValue, Request, StatusCode},
         response::{IntoResponse, Response},
         routing::post,
-        BoxError, Extension, Router, Server,
+        BoxError, Router, Server,
     },
     tower::ServiceBuilder,
     tower_http::ServiceBuilderExt,
@@ -64,12 +64,10 @@ async fn run_http(
 ) -> Result<()> {
     info!("listening on http://{addr}");
 
-    let app = Router::new().route("/v1/traces", post(traces)).layer(
-        ServiceBuilder::new()
-            .compression()
-            .trace_for_http()
-            .layer(Extension(database)),
-    );
+    let app = Router::new()
+        .route("/v1/traces", post(traces))
+        .layer(ServiceBuilder::new().compression().trace_for_http())
+        .with_state(database);
 
     Server::bind(&addr)
         .serve(app.into_make_service())
@@ -82,8 +80,8 @@ async fn run_http(
 }
 
 async fn traces(
+    State(db): State<Database>,
     Protobuf(request): Protobuf<ExportTraceServiceRequest>,
-    Extension(db): Extension<Database>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let spans = convert_resource_spans(request.resource_spans)
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
@@ -102,21 +100,22 @@ async fn traces(
 struct Protobuf<T>(pub T);
 
 #[async_trait]
-impl<T, B> FromRequest<B> for Protobuf<T>
+impl<T, S, B> FromRequest<S, B> for Protobuf<T>
 where
     T: Default + Message,
-    B: HttpBody + Send,
+    B: HttpBody + Send + 'static,
     B::Data: Send,
     B::Error: Into<BoxError>,
+    S: Send + Sync,
 {
     type Rejection = ProtobufRejection;
 
-    async fn from_request(req: &mut RequestParts<B>) -> Result<Self, Self::Rejection> {
-        if !protobuf_content_type(req) {
+    async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
+        if !protobuf_content_type(&req) {
             return Err(ProtobufRejection::MissingContentType);
         }
 
-        let bytes = Bytes::from_request(req).await?;
+        let bytes = Bytes::from_request(req, state).await?;
         let value = T::decode(bytes)?;
 
         Ok(Self(value))
@@ -151,7 +150,7 @@ where
     }
 }
 
-fn protobuf_content_type<B>(req: &RequestParts<B>) -> bool {
+fn protobuf_content_type<B>(req: &Request<B>) -> bool {
     req.headers()
         .get(CONTENT_TYPE)
         .and_then(|ct| ct.to_str().ok())

@@ -5,7 +5,7 @@ use std::{collections::HashMap, net::SocketAddr};
 use anyhow::{ensure, Result};
 use archer_http::{
     axum::{
-        extract::{rejection::QueryRejection, Path, Query},
+        extract::{rejection::QueryRejection, Path, Query, State},
         headers::IfNoneMatch,
         http::{
             header::{CACHE_CONTROL, CONTENT_TYPE, ETAG, LAST_MODIFIED},
@@ -13,7 +13,7 @@ use archer_http::{
         },
         response::IntoResponse,
         routing::get,
-        Extension, Router, Server, TypedHeader,
+        Router, Server, TypedHeader,
     },
     tower::ServiceBuilder,
     tower_http::ServiceBuilderExt,
@@ -45,12 +45,9 @@ pub async fn run(shutdown: Shutdown, database: ReadOnlyDatabase) -> Result<()> {
         .route("/api/metrics/calls", get(todo))
         .route("/api/metrics/errors", get(todo))
         .route("/api/metrics/minstep", get(todo))
-        .fallback(get(asset))
-        .layer(
-            ServiceBuilder::new()
-                .compression()
-                .layer(Extension(database)),
-        );
+        .fallback(asset)
+        .layer(ServiceBuilder::new().compression())
+        .with_state(database);
 
     let addr = SocketAddr::from(net::JAEGER_QUERY_HTTP);
     info!("listening on http://{addr}");
@@ -66,9 +63,7 @@ pub async fn run(shutdown: Shutdown, database: ReadOnlyDatabase) -> Result<()> {
 }
 
 #[instrument(skip_all)]
-async fn services(
-    Extension(db): Extension<ReadOnlyDatabase>,
-) -> Result<impl IntoResponse, ApiError> {
+async fn services(State(db): State<ReadOnlyDatabase>) -> Result<impl IntoResponse, ApiError> {
     db.list_services()
         .await
         .map(ApiResponse::Data)
@@ -78,7 +73,7 @@ async fn services(
 #[instrument(skip_all)]
 async fn operations(
     Path(service): Path<String>,
-    Extension(db): Extension<ReadOnlyDatabase>,
+    State(db): State<ReadOnlyDatabase>,
 ) -> Result<impl IntoResponse, ApiError> {
     db.list_operations(service)
         .await
@@ -145,7 +140,7 @@ struct TraceIdsQuery(#[serde(deserialize_with = "de::trace_ids")] Vec<TraceId>);
 async fn traces(
     query: Result<Query<TracesQuery>, QueryRejection>,
     trace_ids: Option<Query<TraceIdsQuery>>,
-    Extension(db): Extension<ReadOnlyDatabase>,
+    State(db): State<ReadOnlyDatabase>,
 ) -> Result<impl IntoResponse, ApiError> {
     let spans = match (query, trace_ids) {
         (Ok(Query(query)), None) => {
@@ -199,7 +194,7 @@ async fn traces(
 #[instrument(skip_all)]
 async fn trace(
     Path(trace_id): Path<TraceId>,
-    Extension(db): Extension<ReadOnlyDatabase>,
+    State(db): State<ReadOnlyDatabase>,
 ) -> Result<impl IntoResponse, ApiError> {
     let spans = db
         .find_trace(trace_id.0.into())
