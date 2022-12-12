@@ -10,7 +10,7 @@ anyhow = "1.0.66"
 axum = { version = "0.6.1", features = ["headers", "http2"] }
 num-traits = { version = "0.2.15", features = ["i128"] }
 ordered-float = "3.4.0"
-serde = { version = "1.0.148", features = ["derive"] }
+serde = { version = "1.0.150", features = ["derive"] }
 thiserror = "1.0.37"
 tower = "0.4.13"
-tower-http = { version = "0.3.4", features = ["compression-gzip", "decompression-gzip", "trace"] }
+tower-http = { version = "0.3.5", features = ["compression-gzip", "decompression-gzip", "trace"] }
