@@ -4,6 +4,7 @@ use anyhow::Result;
 use archer_proto::opentelemetry::proto::{
     common::v1 as otlp_common, resource::v1 as otlp_res, trace::v1 as otlp,
 };
+use base64::{engine::general_purpose, Engine};
 use opentelemetry_semantic_conventions::resource;
 use time::OffsetDateTime;
 
@@ -90,7 +91,7 @@ fn tag(attribute: otlp_common::KeyValue) -> Option<Tag> {
                 )
                 .ok()?,
             ),
-            Value::BytesValue(b) => TagValue::String(base64::encode(b)),
+            Value::BytesValue(b) => TagValue::String(general_purpose::STANDARD.encode(b)),
         },
     })
 }

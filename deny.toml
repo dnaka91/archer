@@ -22,6 +22,7 @@ license-files = [
 
 [bans]
 skip = [
+	{ name = "base64", version = "=0.13.1" },
 	{ name = "ordered-float", version = "=2.10.0" },
     { name = "wasi", version = "=0.10.2" },
 ]
