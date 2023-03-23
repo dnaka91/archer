@@ -6,10 +6,10 @@ COPY archer-ui/ ./
 
 RUN yarn install && yarn run build
 
-FROM rust:1.65 as chef
+FROM rust:1.68 as chef
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends musl-tools=1.2.2-1 && \
+    apt-get install -y --no-install-recommends musl-tools && \
     rustup target add x86_64-unknown-linux-musl && \
     cargo install cargo-chef
 
@@ -45,7 +45,7 @@ COPY --from=uibuilder /volume/packages/jaeger-ui/build/ archer-ui/packages/jaege
 
 RUN cargo build --release --target x86_64-unknown-linux-musl
 
-FROM alpine:3.16 as newuser
+FROM alpine:3 as newuser
 
 RUN echo "archer:x:1000:" > /tmp/group && \
     echo "archer:x:1000:1000::/dev/null:/sbin/nologin" > /tmp/passwd && \

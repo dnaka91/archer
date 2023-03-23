@@ -6,11 +6,11 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-anyhow = "1.0.69"
-axum = { version = "0.6.7", features = ["headers", "http2"] }
+anyhow = "1.0.70"
+axum = { version = "0.6.12", features = ["headers", "http2"] }
 num-traits = { version = "0.2.15", features = ["i128"] }
-ordered-float = "3.4.0"
-serde = { version = "1.0.152", features = ["derive"] }
-thiserror = "1.0.38"
+ordered-float = "3.6.0"
+serde = { version = "1.0.158", features = ["derive"] }
+thiserror = "1.0.40"
 tower = "0.4.13"
-tower-http = { version = "0.3.5", features = ["compression-gzip", "decompression-gzip", "trace"] }
+tower-http = { version = "0.4.0", features = ["compression-gzip", "decompression-gzip", "trace", "util"] }
