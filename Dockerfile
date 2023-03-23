@@ -10,7 +10,10 @@ FROM rust:1.68 as chef
 
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 
-RUN cargo install cargo-chef
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends musl-tools && \
+    rustup target add x86_64-unknown-linux-musl && \
+    cargo install cargo-chef
 
 WORKDIR /volume
 
@@ -23,7 +26,6 @@ RUN cargo chef prepare --recipe-path recipe.json
 FROM chef as builder
 
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
-ENV RUSTFLAGS="-C target-feature=+crt-static"
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -32,7 +34,7 @@ RUN apt-get update && \
 
 COPY --from=planner /volume/recipe.json recipe.json
 
-RUN cargo chef cook --release --target x86_64-unknown-linux-gnu --recipe-path recipe.json
+RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json
 
 COPY archer-http/ archer-http/
 COPY archer-proto/ archer-proto/
@@ -45,7 +47,7 @@ COPY build.rs Cargo.lock Cargo.toml ./
 
 COPY --from=uibuilder /volume/packages/jaeger-ui/build/ archer-ui/packages/jaeger-ui/build/
 
-RUN cargo build --release --target x86_64-unknown-linux-gnu
+RUN cargo build --release --target x86_64-unknown-linux-musl
 
 FROM alpine:3 as newuser
 
@@ -55,7 +57,7 @@ RUN echo "archer:x:1000:" > /tmp/group && \
 
 FROM scratch
 
-COPY --from=builder /volume/target/x86_64-unknown-linux-gnu/release/archer /bin/
+COPY --from=builder /volume/target/x86_64-unknown-linux-musl/release/archer /bin/
 COPY --from=newuser /tmp/group /tmp/passwd /etc/
 COPY --from=newuser --chown=1000 /var/lib/archer /var/lib/
 
