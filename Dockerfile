@@ -1,4 +1,4 @@
-FROM node:16-alpine as uibuilder
+FROM node:18-alpine as uibuilder
 
 WORKDIR /volume
 
@@ -25,8 +25,8 @@ FROM chef as builder
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    libprotobuf-dev=3.12.4-1 \
-    protobuf-compiler=3.12.4-1
+    libprotobuf-dev \
+    protobuf-compiler
 
 COPY --from=planner /volume/recipe.json recipe.json
 

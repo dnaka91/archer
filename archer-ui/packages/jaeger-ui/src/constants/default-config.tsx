@@ -17,88 +17,93 @@ import deepFreeze from 'deep-freeze';
 import { FALLBACK_DAG_MAX_NUM_SERVICES } from './index';
 import getVersion from '../utils/version/get-version';
 
-const { version } = require('../../package.json');
+import { version } from '../../package.json';
+import { Config } from '../types/config';
 
-export default deepFreeze(
-  Object.defineProperty(
+const defaultConfig: Config = {
+  archiveEnabled: true,
+  dependencies: {
+    dagMaxNumServices: FALLBACK_DAG_MAX_NUM_SERVICES,
+    menuEnabled: true,
+  },
+  menu: [
     {
-      archiveEnabled: true,
-      dependencies: {
-        dagMaxNumServices: FALLBACK_DAG_MAX_NUM_SERVICES,
-        menuEnabled: true,
-      },
-      menu: [
+      label: 'About Jaeger',
+      items: [
         {
-          label: 'About Jaeger',
-          items: [
-            {
-              label: 'Website/Docs',
-              url: 'https://dnaka91.github.io/archer',
-            },
-            {
-              label: 'GitHub',
-              url: 'https://github.com/dnaka91/archer',
-            },
-            {
-              label: `Jaeger ${getVersion().gitVersion}`,
-            },
-            {
-              label: `Commit ${getVersion().gitCommit.substring(0, 7)}`,
-            },
-            {
-              label: `Build ${getVersion().buildDate}`,
-            },
-            {
-              label: `Jaeger UI v${version}`,
-            },
-          ],
+          label: 'Website/Docs',
+          url: 'https://dnaka91.github.io/archer',
+        },
+        {
+          label: 'GitHub',
+          url: 'https://github.com/dnaka91/archer',
+        },
+        {
+          label: `Jaeger ${getVersion().gitVersion}`,
+        },
+        {
+          label: `Commit ${getVersion().gitCommit.substring(0, 7)}`,
+        },
+        {
+          label: `Build ${getVersion().buildDate}`,
+        },
+        {
+          label: `Jaeger UI v${version}`,
         },
       ],
-      search: {
-        maxLookback: {
-          label: '2 Days',
-          value: '2d',
-        },
-        maxLimit: 1500,
+    },
+  ],
+  search: {
+    maxLookback: {
+      label: '2 Days',
+      value: '2d',
+    },
+    maxLimit: 1500,
+  },
+  tracking: {
+    gaID: null,
+    trackErrors: true,
+    customWebAnalytics: null,
+  },
+  linkPatterns: [],
+  monitor: {
+    menuEnabled: false,
+    emptyState: {
+      mainTitle: 'Get started with Service Performance Monitoring',
+      subTitle:
+        'A high-level monitoring dashboard that helps you cut down the time to identify and resolve anomalies and issues.',
+      description:
+        'Service Performance Monitoring aggregates tracing data into RED metrics and visualizes them in service and operation level dashboards.',
+      button: {
+        text: 'Read the Documentation',
+        onClick: () => window.open('https://dnaka91.github.io/archer'),
       },
-      tracking: {
-        gaID: null,
-        trackErrors: true,
-        customWebAnalytics: null,
-      },
-      linkPatterns: [],
-      monitor: {
-        menuEnabled: false,
-        emptyState: {
-          mainTitle: 'Get started with Service Performance Monitoring',
-          subTitle:
-            'A high-level monitoring dashboard that helps you cut down the time to identify and resolve anomalies and issues.',
-          description:
-            'Service Performance Monitoring aggregates tracing data into RED metrics and visualizes them in service and operation level dashboards.',
-          button: {
-            text: 'Read the Documentation',
-            onClick: () => window.open('https://dnaka91.github.io/archer'),
-          },
-          alert: {
-            message: 'Service Performance Monitoring requires a Prometheus-compatible time series database.',
-            type: 'info',
-          },
-        },
-        docsLink: 'https://dnaka91.github.io/archer',
-      },
-      deepDependencies: {
-        menuEnabled: false,
-      },
-      qualityMetrics: {
-        menuEnabled: false,
-        menuLabel: 'Trace Quality',
+      alert: {
+        message: 'Service Performance Monitoring requires a Prometheus-compatible time series database.',
+        type: 'info',
       },
     },
-    // fields that should be individually merged vs wholesale replaced
-    '__mergeFields',
-    { value: ['dependencies', 'search', 'tracking'] }
-  )
-);
+    docsLink: 'https://dnaka91.github.io/archer',
+  },
+
+  traceGraph: {
+    layoutManagerMemory: undefined,
+  },
+
+  deepDependencies: {
+    menuEnabled: false,
+  },
+  qualityMetrics: {
+    menuEnabled: false,
+    menuLabel: 'Trace Quality',
+  },
+};
+
+// Fields that should be merged with user-supplied config values rather than overwritten.
+type TMergeField = 'dependencies' | 'search' | 'tracking';
+export const mergeFields: readonly TMergeField[] = ['dependencies', 'search', 'tracking'];
+
+export default deepFreeze(defaultConfig);
 
 export const deprecations = [
   {

@@ -18,13 +18,13 @@ import { TNil } from '.';
 
 export type ConfigMenuItem = {
   label: string;
-  url: string;
+  url?: string;
   anchorTarget?: '_self' | '_blank' | '_parent' | '_top';
 };
 
 export type ConfigMenuGroup = {
   label: string;
-  items: ConfigMenuItem[];
+  items: readonly ConfigMenuItem[];
 };
 
 export type TScript = {
@@ -73,6 +73,15 @@ export type MonitorConfig = {
   docsLink?: string;
 };
 
+export type TraceGraphConfig = {
+  // layoutManagerMemory controls the total memeory available for the GraphViz
+  // Emscripten module instance. The value should be a power of two.
+  // The default of 16MB should be sufficient for most cases — only consider
+  // using a larger number if you run into the error "Cannot enlarge memory arrays".
+  // See https://github.com/jaegertracing/jaeger-ui/issues/1249 for background
+  layoutManagerMemory?: number;
+};
+
 // Default values are provided in packages/jaeger-ui/src/constants/default-config.tsx
 export type Config = {
   // archiveEnabled enables the Archive Trace button in the trace view.
@@ -84,15 +93,15 @@ export type Config = {
     // menuEnabled enables or disables the System Architecture tab.
     menuEnabled?: boolean;
 
-    // dagMaxServicesLen defines the maximum number of services allowed
+    // dagMaxNumServices defines the maximum number of services allowed
     // before the DAG dependency view is disabled. Too many services
     // cause the DAG view to be non-responsive.
-    dagMaxServicesLen?: number;
+    dagMaxNumServices?: number;
   };
 
   // menu controls the dropdown menu in the top-right corner of the UI.
   // When populated, this element completely overrides the default menu.
-  menu: (ConfigMenuGroup | ConfigMenuItem)[];
+  menu: readonly (ConfigMenuGroup | ConfigMenuItem)[];
 
   // search section controls some aspects of the Search panel.
   search?: {
@@ -115,14 +124,14 @@ export type Config = {
 
   // scripts is an array of URLs of additional JavaScript files to be loaded.
   // TODO when is it useful?
-  scripts?: TScript[];
+  scripts?: readonly TScript[];
 
   // topTagPrefixes defines a set of prefixes for span tag names that are considered
   // "important" and cause the matching tags to appear higher in the list of tags.
   // For example, topTagPrefixes=['http.'] would cause all span tags that begin with
   // "http." to be shown above all other tags.
   // See https://github.com/jaegertracing/jaeger-ui/issues/218 for background.
-  topTagPrefixes?: string[];
+  topTagPrefixes?: readonly string[];
 
   // tracking section controls the collection of usage metrics as analytics events.
   // By default, Jaeger uses Google Analytics for event tracking (if enabled).
@@ -149,17 +158,20 @@ export type Config = {
   // strings support variable substitution.
   // A trace level link is displayed as an icon at the top of the trace view.
   // A tag-level link converts the tag value into a hyperlink.
-  linkPatterns?: LinkPatternsConfig;
+  linkPatterns?: readonly LinkPatternsConfig[];
 
   // monitor section controls Service Performance Monitoring tab.
   monitor?: MonitorConfig;
+
+  // traceGraph controls the trace graph under trace page
+  traceGraph?: TraceGraphConfig;
 
   // The following features are experimental / undocumented.
 
   deepDependencies?: {
     menuEnabled?: boolean;
   };
-  pathAgnosticDecorations?: TPathAgnosticDecorationSchema[];
+  pathAgnosticDecorations?: readonly TPathAgnosticDecorationSchema[];
   qualityMetrics?: {
     menuEnabled?: boolean;
     menuLabel?: string;
