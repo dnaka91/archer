@@ -251,7 +251,7 @@ impl ReadOnlyDatabase {
 }
 
 fn encode_span(span: &Span) -> Result<Vec<u8>> {
-    let buf = rmp_serde::to_vec(span)?;
+    let buf = postcard::to_stdvec(span)?;
     let buf = snap::raw::Encoder::new().compress_vec(&buf)?;
 
     Ok(buf)
@@ -259,7 +259,7 @@ fn encode_span(span: &Span) -> Result<Vec<u8>> {
 
 fn decode_span(span: Vec<u8>) -> Result<Span> {
     let span = snap::raw::Decoder::new().decompress_vec(&span)?;
-    let span = rmp_serde::from_slice(&span)?;
+    let span = postcard::from_bytes(&span)?;
 
     Ok(span)
 }

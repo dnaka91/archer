@@ -30,10 +30,10 @@ once_cell = "1.17.1"
 opentelemetry = { version = "0.18.0", features = ["rt-tokio", "trace"] }
 opentelemetry-semantic-conventions = "0.10.0"
 phf = { version = "0.11.1", features = ["macros"] }
+postcard = { version = "1.0.4", default-features = false, features = ["use-std"] }
 quinn = { version = "0.9.3", default-features = false, features = ["runtime-tokio", "tls-rustls"] }
 rand = "0.8.5"
 rcgen = "0.10.0"
-rmp-serde = "1.1.1"
 rusqlite = { version = "0.28.0", features = ["array", "bundled", "time", "trace"] }
 rustls = "0.20.8"
 rustls-pemfile = "1.0.2"

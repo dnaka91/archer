@@ -24,7 +24,7 @@ pub enum Error {
     #[error("failed to establish new stream")]
     CreateStream(#[from] quinn::ConnectionError),
     #[error("failed serializing data")]
-    Serialize(#[from] rmp_serde::encode::Error),
+    Serialize(#[from] postcard::Error),
     #[error("failed compressing data")]
     Compress(#[from] snap::Error),
     #[error("failed to send data over stream")]
@@ -75,7 +75,7 @@ impl Connection {
                     let result = async {
                         let mut send = conn.open_uni().await?;
 
-                        let data = rmp_serde::to_vec(&span)?;
+                        let data = postcard::to_stdvec(&span)?;
                         let data = snap::raw::Encoder::new().compress_vec(&data)?;
 
                         send.write_all(&data).await?;
