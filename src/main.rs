@@ -3,8 +3,6 @@
 #![allow(clippy::manual_let_else, clippy::needless_pass_by_value)]
 
 use anyhow::Result;
-use opentelemetry::sdk::{trace, Resource};
-use opentelemetry_semantic_conventions::resource;
 use tokio::task::JoinHandle;
 use tokio_shutdown::Shutdown;
 use tracing::level_filters::LevelFilter;
@@ -25,13 +23,9 @@ async fn main() -> Result<()> {
     let database_ro = storage::init_readonly().await?;
     let shutdown = Shutdown::new()?;
 
-    let tracer = tracer::install_batch(
-        database.clone(),
-        trace::config().with_resource(Resource::new([
-            resource::SERVICE_NAME.string(env!("CARGO_PKG_NAME")),
-            resource::SERVICE_VERSION.string(env!("CARGO_PKG_VERSION")),
-        ])),
-    );
+    let quiver_handle = tokio::spawn(quiver::collector::run(shutdown.clone(), database.clone()));
+
+    let (tracer, tracer_handle) = tracer::init(shutdown.clone()).await?;
 
     tracing_subscriber::registry()
         .with(
@@ -43,13 +37,11 @@ async fn main() -> Result<()> {
             ),
         )
         .with(
-            tracing_opentelemetry::layer()
-                .with_tracer(tracer)
-                .with_filter(
-                    Targets::new()
-                        .with_default(LevelFilter::OFF)
-                        .with_target("archer::jaeger::query", LevelFilter::INFO),
-                ),
+            tracer.with_filter(
+                Targets::new()
+                    .with_default(LevelFilter::OFF)
+                    .with_target("archer::jaeger::query", LevelFilter::INFO),
+            ),
         )
         .init();
 
@@ -70,7 +62,8 @@ async fn main() -> Result<()> {
             shutdown.clone(),
             database.clone(),
         ))),
-        flatten(tokio::spawn(quiver::collector::run(shutdown, database))),
+        flatten(quiver_handle),
+        flatten(tracer_handle),
     )?;
 
     Ok(())

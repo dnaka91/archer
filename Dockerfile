@@ -43,6 +43,7 @@ COPY archer-thrift-derive/ archer-thrift-derive/
 COPY jaeger-idl/ jaeger-idl/
 COPY opentelemetry-proto/ opentelemetry-proto/
 COPY src/ src/
+COPY tracing-archer/ tracing-archer/
 COPY build.rs Cargo.lock Cargo.toml ./
 
 COPY --from=uibuilder /volume/packages/jaeger-ui/build/ archer-ui/packages/jaeger-ui/build/

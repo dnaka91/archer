@@ -5,7 +5,6 @@ use archer_proto::opentelemetry::proto::{
     common::v1 as otlp_common, resource::v1 as otlp_res, trace::v1 as otlp,
 };
 use base64::{engine::general_purpose, Engine};
-use opentelemetry_semantic_conventions::resource;
 use time::OffsetDateTime;
 
 use crate::models::{Log, Process, RefType, Reference, Span, SpanId, Tag, TagValue, TraceId};
@@ -56,9 +55,11 @@ fn resource(mut resource: otlp_res::Resource) -> Process {
 fn find_service_name(attributes: &mut [otlp_common::KeyValue]) -> Option<String> {
     use otlp_common::any_value::Value;
 
+    const SERVICE_NAME: &str = "service.name";
+
     let value = attributes
         .iter_mut()
-        .find(|attr| attr.key == resource::SERVICE_NAME.as_str())
+        .find(|attr| attr.key == SERVICE_NAME)
         .and_then(|attr| attr.value.take())
         .and_then(|value| value.value)?;
 
