@@ -19,7 +19,7 @@ thiserror = "1.0.40"
 time = { version = "0.3.20", features = ["serde"] }
 tokio = { version = "1.27.0", features = ["net", "sync", "time"] }
 tracing = "0.1.37"
-tracing-subscriber = "0.3.16"
+tracing-subscriber = "0.3.17"
 webpki = "0.22.0"
 
 [dev-dependencies]
