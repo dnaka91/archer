@@ -337,11 +337,7 @@ mod tests {
             ..TracesQuery::default()
         };
         let result = serde_urlencoded::from_str(
-            "\
-            service=test&\
-            minDuration=10ms&\
-            maxDuration=1.2h30m45s120.2ms\
-            ",
+            "service=test&minDuration=10ms&maxDuration=1.2h30m45s120.2ms",
         );
 
         assert_eq!(expect, result.unwrap());
@@ -363,20 +359,13 @@ mod tests {
             .collect(),
             ..TracesQuery::default()
         };
-        // end=1661236231416000&limit=20&lookback=1h&maxDuration&minDuration&service=twitchid&start=1661232631416000
+        // end=1661236231416000&limit=20&lookback=1h&maxDuration&minDuration&service=twitchid&
+        // start=1661232631416000
         let result = serde_urlencoded::from_str(
             "\
-            service=test&\
-            operation=op1&\
-            start=1661232631416000&\
-            end=1661236231416000&\
-            minDuration&\
-            maxDuration&\
-            lookback=1h&\
-            tag=a:1&\
-            limit=20&\
-            tags={\"b\":\"2\"}\
-            ",
+            \
+             service=test&operation=op1&start=1661232631416000&end=1661236231416000&minDuration&\
+             maxDuration&lookback=1h&tag=a:1&limit=20&tags={\"b\":\"2\"}",
         );
 
         assert_eq!(expect, result.unwrap());

@@ -181,6 +181,8 @@ pub enum ConnectError {
     Io(#[from] std::io::Error),
     #[error("failed loading certificate")]
     Webpki(#[from] webpki::Error),
+    #[error("failed adding certificate to rustls")]
+    Rustls(#[from] rustls::Error),
     #[error("failed to connect to the server")]
     Connect(#[from] quinn::ConnectError),
     #[error("failed to complete connection to the server")]

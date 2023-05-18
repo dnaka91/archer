@@ -138,7 +138,7 @@ async fn handle_connection(conn: Connecting, database: Database) -> Result<()> {
     }
 }
 
-async fn handle_request(recv: RecvStream, database: Database) -> Result<()> {
+async fn handle_request(mut recv: RecvStream, database: Database) -> Result<()> {
     let req = recv
         .read_to_end(64 * 1024)
         .await
