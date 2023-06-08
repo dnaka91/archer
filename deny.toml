@@ -2,15 +2,13 @@
 allow = []
 allow-osi-fsf-free = "both"
 exceptions = [
-    { allow = ["AGPL-3.0"], name = "archer" },
-    { allow = ["AGPL-3.0"], name = "archer-http" },
-    { allow = ["AGPL-3.0"], name = "archer-proto" },
-    { allow = ["AGPL-3.0"], name = "archer-thrift" },
-    { allow = ["AGPL-3.0"], name = "archer-thrift-derive" },
     { allow = ["MPL-2.0"], name = "option-ext" },
     { allow = ["OpenSSL"], name = "ring" },
     { allow = ["Unicode-DFS-2016"], name = "unicode-ident" },
 ]
+
+[licenses.private]
+ignore = true
 
 [[licenses.clarify]]
 name = "ring"
@@ -30,7 +28,4 @@ skip = [
     { name = "redox_syscall", version = "=0.2.16" },
     { name = "socket2", version = "=0.4.9" },
     { name = "syn", version = "=1.0.109" },
-]
-skip-tree = [
-    { name = "windows-sys", version = "=0.45.0", depth = 3 },
 ]
