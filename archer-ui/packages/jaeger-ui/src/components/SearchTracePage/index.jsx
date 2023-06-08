@@ -84,6 +84,7 @@ export class SearchTracePageImpl extends Component {
       embedded,
       errors,
       isHomepage,
+      disableFileUploadControl,
       loadingServices,
       loadingTraces,
       maxTraceDuration,
@@ -104,13 +105,15 @@ export class SearchTracePageImpl extends Component {
                 <TabPane tab="Search" key="searchForm">
                   {!loadingServices && services ? <SearchForm services={services} /> : <LoadingIndicator />}
                 </TabPane>
-                <TabPane tab="Upload" key="fileLoader">
-                  <FileLoader
-                    loadJsonTraces={fileList => {
-                      loadJsonTraces(fileList);
-                    }}
-                  />
-                </TabPane>
+                {!disableFileUploadControl && (
+                  <TabPane tab="Upload" key="fileLoader">
+                    <FileLoader
+                      loadJsonTraces={fileList => {
+                        loadJsonTraces(fileList);
+                      }}
+                    />
+                  </TabPane>
+                )}
               </Tabs>
             </div>
           </Col>
@@ -162,6 +165,7 @@ SearchTracePageImpl.propTypes = {
   }),
   maxTraceDuration: PropTypes.number,
   loadingServices: PropTypes.bool,
+  disableFileUploadControl: PropTypes.bool,
   loadingTraces: PropTypes.bool,
   urlQueryParams: PropTypes.shape({
     service: PropTypes.string,
@@ -235,9 +239,10 @@ const stateServicesXformer = memoizeOne(stateServices => {
 
 // export to test
 export function mapStateToProps(state) {
-  const { embedded, router, services: stServices, traceDiff } = state;
+  const { embedded, router, services: stServices, traceDiff, config } = state;
   const query = getUrlState(router.location.search);
   const isHomepage = !Object.keys(query).length;
+  const { disableFileUploadControl } = config;
   const {
     query: queryOfResults,
     traces,
@@ -263,6 +268,7 @@ export function mapStateToProps(state) {
     embedded,
     isHomepage,
     loadingServices,
+    disableFileUploadControl,
     loadingTraces,
     services,
     traceResults,
