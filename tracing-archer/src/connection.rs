@@ -2,10 +2,7 @@ use std::{
     borrow::Cow,
     io::Cursor,
     net::{Ipv4Addr, SocketAddr},
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -13,9 +10,10 @@ use quinn::{ClientConfig, Endpoint, TransportConfig, VarInt};
 use rustls::{Certificate, RootCertStore};
 use tokio::{
     sync::{mpsc, oneshot},
+    task::JoinHandle,
     time,
 };
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::models;
 
@@ -35,7 +33,8 @@ struct Connection {
     receiver: mpsc::Receiver<Message>,
     endpoint: quinn::Endpoint,
     conn: Arc<quinn::Connection>,
-    active_tasks: Arc<AtomicUsize>,
+    tasks: mpsc::UnboundedSender<JoinHandle<()>>,
+    handle: Option<JoinHandle<()>>,
 }
 
 enum Message {
@@ -55,11 +54,22 @@ impl Connection {
         endpoint: quinn::Endpoint,
         conn: quinn::Connection,
     ) -> Self {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+
+        let handle = tokio::spawn(async move {
+            while let Some(task) = rx.recv().await {
+                if let Err(e) = task.await {
+                    warn!(error = ?e, "sender task panicked");
+                }
+            }
+        });
+
         Self {
             receiver,
             endpoint,
             conn: Arc::new(conn),
-            active_tasks: Arc::new(AtomicUsize::new(0)),
+            tasks: tx,
+            handle: Some(handle),
         }
     }
 
@@ -67,26 +77,24 @@ impl Connection {
         match msg {
             Message::SendSpan { span, respond_to } => {
                 let conn = Arc::clone(&self.conn);
-                let active_tasks = Arc::clone(&self.active_tasks);
 
-                active_tasks.fetch_add(1, Ordering::SeqCst);
+                self.tasks
+                    .send(tokio::spawn(async move {
+                        let result = async {
+                            let mut send = conn.open_uni().await?;
 
-                tokio::spawn(async move {
-                    let result = async {
-                        let mut send = conn.open_uni().await?;
+                            let data = postcard::to_stdvec(&span)?;
+                            let data = snap::raw::Encoder::new().compress_vec(&data)?;
 
-                        let data = postcard::to_stdvec(&span)?;
-                        let data = snap::raw::Encoder::new().compress_vec(&data)?;
+                            send.write_all(&data).await?;
+                            send.finish().await?;
 
-                        send.write_all(&data).await?;
-                        send.finish().await?;
+                            Ok(())
+                        };
 
-                        Ok(())
-                    };
-
-                    respond_to.send(result.await).ok();
-                    active_tasks.fetch_sub(1, Ordering::SeqCst);
-                });
+                        respond_to.send(result.await).ok();
+                    }))
+                    .ok();
 
                 false
             }
@@ -97,10 +105,10 @@ impl Connection {
                 let start = Instant::now();
                 debug!("waiting for remaining tasks to finish");
 
-                // TODO: not great to poll here, and if the task panics the counter will be off and
-                // we fall back to the `max_wait` (which might be bad if the wait time is long).
-                while start.elapsed() < max_wait && self.active_tasks.load(Ordering::SeqCst) > 0 {
-                    time::sleep(Duration::from_millis(50)).await;
+                if let Some(handle) = self.handle.take() {
+                    if let Ok(Err(e)) = time::timeout(max_wait, handle).await {
+                        warn!(error = ?e, "background task panicked");
+                    }
                 }
 
                 let waited = start.elapsed();
