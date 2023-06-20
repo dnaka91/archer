@@ -214,7 +214,6 @@ async fn trace(
     )]))
 }
 
-#[allow(clippy::let_with_type_underscore)]
 #[instrument(skip_all)]
 async fn dependencies() -> impl IntoResponse {
     ApiResponse::Data(Vec::<()>::new())
