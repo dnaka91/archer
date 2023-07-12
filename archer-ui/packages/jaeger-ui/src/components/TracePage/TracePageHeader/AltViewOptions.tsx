@@ -27,10 +27,12 @@ import {
 } from './TracePageHeader.track';
 import prefixUrl from '../../../utils/prefix-url';
 import { ETraceViewType } from '../types';
+import { getTargetBlankOrTop } from '../../../utils/config/get-target';
 
 type Props = {
   onTraceViewChange: (viewType: ETraceViewType) => void;
   traceID: string;
+  disableJsonView: boolean;
   viewType: ETraceViewType;
 };
 
@@ -58,7 +60,7 @@ const MENU_ITEMS = [
 ];
 
 export default function AltViewOptions(props: Props) {
-  const { onTraceViewChange, viewType, traceID } = props;
+  const { onTraceViewChange, viewType, traceID, disableJsonView } = props;
 
   const handleSelectView = (item: ETraceViewType) => {
     if (item === ETraceViewType.TraceTimelineViewer) {
@@ -82,26 +84,30 @@ export default function AltViewOptions(props: Props) {
           </a>
         </Menu.Item>
       ))}
-      <Menu.Item>
-        <Link
-          to={prefixUrl(`/api/traces/${traceID}?prettyPrint=true`)}
-          rel="noopener noreferrer"
-          target="_blank"
-          onClick={trackJsonView}
-        >
-          Trace JSON
-        </Link>
-      </Menu.Item>
-      <Menu.Item>
-        <Link
-          to={prefixUrl(`/api/traces/${traceID}?raw=true&prettyPrint=true`)}
-          rel="noopener noreferrer"
-          target="_blank"
-          onClick={trackRawJsonView}
-        >
-          Trace JSON (unadjusted)
-        </Link>
-      </Menu.Item>
+      {!disableJsonView && (
+        <Menu.Item>
+          <Link
+            to={prefixUrl(`/api/traces/${traceID}?prettyPrint=true`)}
+            rel="noopener noreferrer"
+            target={getTargetBlankOrTop()}
+            onClick={trackJsonView}
+          >
+            Trace JSON
+          </Link>
+        </Menu.Item>
+      )}
+      {!disableJsonView && (
+        <Menu.Item>
+          <Link
+            to={prefixUrl(`/api/traces/${traceID}?raw=true&prettyPrint=true`)}
+            rel="noopener noreferrer"
+            target={getTargetBlankOrTop()}
+            onClick={trackRawJsonView}
+          >
+            Trace JSON (unadjusted)
+          </Link>
+        </Menu.Item>
+      )}
     </Menu>
   );
 

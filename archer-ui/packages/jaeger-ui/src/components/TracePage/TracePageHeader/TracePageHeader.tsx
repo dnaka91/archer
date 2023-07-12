@@ -38,6 +38,7 @@ import { getTraceLinks } from '../../../model/link-patterns';
 
 import './TracePageHeader.css';
 import ExternalLinks from '../../common/ExternalLinks';
+import { getTargetEmptyOrBlank } from '../../../utils/config/get-target';
 
 type TracePageHeaderEmbedProps = {
   canCollapse: boolean;
@@ -55,6 +56,7 @@ type TracePageHeaderEmbedProps = {
   showArchiveButton: boolean;
   showShortcutsHelp: boolean;
   showStandaloneLink: boolean;
+  disableJsonView: boolean;
   showViewOptions: boolean;
   slimView: boolean;
   textFilter: string | TNil;
@@ -124,6 +126,7 @@ export function TracePageHeaderFn(props: TracePageHeaderEmbedProps & { forwarded
     showShortcutsHelp,
     showStandaloneLink,
     showViewOptions,
+    disableJsonView,
     slimView,
     textFilter,
     toSearch,
@@ -191,7 +194,12 @@ export function TracePageHeaderFn(props: TracePageHeaderEmbedProps & { forwarded
         />
         {showShortcutsHelp && <KeyboardShortcutsHelp className="ub-m2" />}
         {showViewOptions && (
-          <AltViewOptions onTraceViewChange={onTraceViewChange} traceID={trace.traceID} viewType={viewType} />
+          <AltViewOptions
+            disableJsonView={disableJsonView}
+            onTraceViewChange={onTraceViewChange}
+            traceID={trace.traceID}
+            viewType={viewType}
+          />
         )}
         {showArchiveButton && (
           <Button className="ub-mr2 ub-flex ub-items-center" htmlType="button" onClick={onArchiveClicked}>
@@ -203,7 +211,7 @@ export function TracePageHeaderFn(props: TracePageHeaderEmbedProps & { forwarded
           <Link
             className="u-tx-inherit ub-nowrap ub-mx2"
             to={linkToStandalone}
-            target="_blank"
+            target={getTargetEmptyOrBlank()}
             rel="noopener noreferrer"
           >
             <NewWindowIcon isLarge />

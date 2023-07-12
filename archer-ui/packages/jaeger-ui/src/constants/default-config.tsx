@@ -86,6 +86,8 @@ const defaultConfig: Config = {
     docsLink: 'https://dnaka91.github.io/archer',
   },
   disableFileUploadControl: false,
+  disableJsonView: false,
+  forbidNewPage: false,
   traceGraph: {
     layoutManagerMemory: undefined,
   },
