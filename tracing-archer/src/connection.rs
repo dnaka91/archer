@@ -2,7 +2,10 @@ use std::{
     borrow::Cow,
     io::Cursor,
     net::{Ipv4Addr, SocketAddr},
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     time::{Duration, Instant},
 };
 
@@ -19,6 +22,8 @@ use crate::models;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("failed to establish new connection")]
+    CreateConnection(#[from] quinn::ConnectError),
     #[error("failed to establish new stream")]
     CreateStream(#[from] quinn::ConnectionError),
     #[error("failed serializing data")]
@@ -31,6 +36,9 @@ pub enum Error {
 
 struct Connection {
     receiver: mpsc::Receiver<Message>,
+    addr: SocketAddr,
+    server_name: Cow<'static, str>,
+    connected: Arc<AtomicBool>,
     endpoint: quinn::Endpoint,
     conn: Arc<quinn::Connection>,
     tasks: mpsc::UnboundedSender<JoinHandle<()>>,
@@ -49,12 +57,17 @@ enum Message {
 }
 
 impl Connection {
-    fn new(
+    async fn new(
         receiver: mpsc::Receiver<Message>,
         endpoint: quinn::Endpoint,
-        conn: quinn::Connection,
-    ) -> Self {
+        addr: Option<SocketAddr>,
+        name: Option<Cow<'static, str>>,
+    ) -> Result<Self, Error> {
         let (tx, mut rx) = mpsc::unbounded_channel();
+        let addr = addr.unwrap_or_else(|| (Ipv4Addr::LOCALHOST, 14000).into());
+        let server_name = name.unwrap_or_else(|| "localhost".into());
+
+        let conn = endpoint.connect(addr, &server_name)?.await?;
 
         let handle = tokio::spawn(async move {
             while let Some(task) = rx.recv().await {
@@ -64,35 +77,63 @@ impl Connection {
             }
         });
 
-        Self {
+        Ok(Self {
             receiver,
+            addr,
+            server_name,
+            connected: Arc::new(AtomicBool::new(false)),
             endpoint,
             conn: Arc::new(conn),
             tasks: tx,
             handle: Some(handle),
-        }
+        })
     }
 
     async fn handle_message(&mut self, msg: Message) -> bool {
         match msg {
             Message::SendSpan { span, respond_to } => {
+                if !self.connected.load(Ordering::SeqCst) {
+                    let result = async {
+                        let connecting = self.endpoint.connect(self.addr, &self.server_name)?;
+                        let connection = connecting.await?;
+                        self.conn = Arc::new(connection);
+                        self.connected.store(true, Ordering::SeqCst);
+                        Ok(())
+                    };
+
+                    if let Err(e) = result.await {
+                        respond_to.send(Err(e)).ok();
+                        return false;
+                    }
+                }
+
+                let connected = Arc::clone(&self.connected);
                 let conn = Arc::clone(&self.conn);
 
                 self.tasks
                     .send(tokio::spawn(async move {
                         let result = async {
-                            let mut send = conn.open_uni().await?;
-
                             let data = postcard::to_stdvec(&span)?;
                             let data = snap::raw::Encoder::new().compress_vec(&data)?;
 
-                            send.write_all(&data).await?;
-                            send.finish().await?;
+                            let sent = async {
+                                let mut send = conn.open_uni().await?;
+                                send.write_all(&data).await?;
+                                send.finish().await?;
+                                Ok::<_, Error>(())
+                            }
+                            .await;
+
+                            if sent.is_err() {
+                                connected.store(false, Ordering::SeqCst);
+                                sent?;
+                            }
 
                             Ok(())
-                        };
+                        }
+                        .await;
 
-                        respond_to.send(result.await).ok();
+                        respond_to.send(result).ok();
                     }))
                     .ok();
 
@@ -137,12 +178,16 @@ pub struct Handle {
 }
 
 impl Handle {
-    pub fn new(endpoint: quinn::Endpoint, conn: quinn::Connection) -> Self {
+    pub async fn new(
+        endpoint: quinn::Endpoint,
+        addr: Option<SocketAddr>,
+        name: Option<Cow<'static, str>>,
+    ) -> Result<Self, Error> {
         let (sender, receiver) = mpsc::channel(16);
-        let conn = Connection::new(receiver, endpoint, conn);
+        let conn = Connection::new(receiver, endpoint, addr, name).await?;
         tokio::spawn(drive_connection(conn));
 
-        Self { sender }
+        Ok(Self { sender })
     }
 
     pub async fn send_span(&self, span: models::Span) -> Result<(), Error> {
@@ -191,10 +236,6 @@ pub enum ConnectError {
     Webpki(#[from] webpki::Error),
     #[error("failed adding certificate to rustls")]
     Rustls(#[from] rustls::Error),
-    #[error("failed to connect to the server")]
-    Connect(#[from] quinn::ConnectError),
-    #[error("failed to complete connection to the server")]
-    Connection(#[from] quinn::ConnectionError),
 }
 
 pub fn create_endpoint(cert_pem: &[u8]) -> Result<Endpoint, ConnectError> {
@@ -219,15 +260,4 @@ pub fn create_endpoint(cert_pem: &[u8]) -> Result<Endpoint, ConnectError> {
     endpoint.set_default_client_config(config);
 
     Ok(endpoint)
-}
-
-pub async fn create_connection(
-    endpoint: &quinn::Endpoint,
-    addr: Option<SocketAddr>,
-    name: Option<Cow<'_, str>>,
-) -> Result<quinn::Connection, ConnectError> {
-    let addr = addr.unwrap_or_else(|| (Ipv4Addr::LOCALHOST, 14000).into());
-    let server_name = name.unwrap_or_else(|| "localhost".into());
-
-    Ok(endpoint.connect(addr, &server_name)?.await?)
 }

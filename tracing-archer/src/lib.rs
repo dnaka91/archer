@@ -431,9 +431,8 @@ impl Builder {
         };
 
         let endpoint = connection::create_endpoint(cert_pem.as_bytes())?;
-        let connection = connection::create_connection(&endpoint, addr, self.name).await?;
 
-        let handle = connection::Handle::new(endpoint, connection);
+        let handle = connection::Handle::new(endpoint, addr, self.name).await?;
 
         let layer = QuiverLayer {
             connection: handle.clone(),
@@ -456,6 +455,8 @@ pub enum BuildLayerError {
     ResolveAddress(#[source] std::io::Error),
     #[error("failed to connect to the server")]
     Connect(#[from] crate::connection::ConnectError),
+    #[error("failed to communicate with the server")]
+    Connection(#[from] crate::connection::Error),
 }
 
 #[must_use]
