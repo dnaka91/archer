@@ -21,6 +21,7 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
     let addr = SocketAddr::from(net::QUIVER_COLLECTOR);
     let (config, cert) = load_config().await?;
     let endpoint = Endpoint::server(config, addr)?;
+    let mut tasks = Vec::new();
 
     info!("listening on http://{}", endpoint.local_addr()?);
     info!("server certificate:\n{cert}");
@@ -39,14 +40,25 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
             "incoming connection"
         );
 
+        let shutdown = shutdown.clone();
         let database = database.clone();
 
-        tokio::spawn(async move {
-            if let Err(e) = handle_connection(conn, database).await {
+        tasks.push(tokio::spawn(async move {
+            if let Err(e) = handle_connection(shutdown, conn, database).await {
                 error!(error = ?e, "failed handling connection");
             }
-        });
+        }));
+
+        tasks.retain(|task| !task.is_finished());
     }
+
+    for task in tasks {
+        if let Err(e) = task.await {
+            error!(error = ?e, "connection handler task panicked");
+        }
+    }
+
+    endpoint.close(VarInt::from_u32(1), b"shutdown");
 
     Ok(())
 }
@@ -115,13 +127,21 @@ fn generate_certificate() -> Result<(Certificate, String, PrivateKey, String)> {
     ))
 }
 
-async fn handle_connection(conn: Connecting, database: Database) -> Result<()> {
+async fn handle_connection(shutdown: Shutdown, conn: Connecting, database: Database) -> Result<()> {
     let connection = conn.await?;
+    let mut tasks = Vec::new();
 
     debug!(addr = %connection.remote_address(), "connection established");
 
     loop {
-        let stream = match connection.accept_uni().await {
+        let stream = tokio::select! {
+            _ = shutdown.handle() => {
+                break;
+            }
+            stream = connection.accept_uni() => stream,
+        };
+
+        let stream = match stream {
             Err(ConnectionError::ApplicationClosed(_) | ConnectionError::TimedOut) => return Ok(()),
             Err(e) => return Err(e.into()),
             Ok(s) => s,
@@ -130,18 +150,28 @@ async fn handle_connection(conn: Connecting, database: Database) -> Result<()> {
         debug!(addr = %connection.remote_address(), "incoming request");
         let database = database.clone();
 
-        tokio::spawn(async move {
+        tasks.push(tokio::spawn(async move {
             if let Err(e) = handle_request(stream, database).await {
                 error!(error = ?e, "failed handling request");
             }
-        });
+        }));
+
+        tasks.retain(|task| !task.is_finished());
     }
+
+    for task in tasks {
+        if let Err(e) = task.await {
+            error!(error = ?e, "request handler task panicked");
+        }
+    }
+
+    Ok(())
 }
 
 async fn handle_request(mut recv: RecvStream, database: Database) -> Result<()> {
-    let req = recv
-        .read_to_end(64 * 1024)
+    let req = tokio::time::timeout(Duration::from_secs(5), recv.read_to_end(64 * 1024))
         .await
+        .context("read timeout")?
         .context("failed reading request")?;
 
     let raw = snap::raw::Decoder::new().decompress_vec(&req)?;
