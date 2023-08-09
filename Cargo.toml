@@ -16,7 +16,7 @@ license.workspace = true
 publish = false
 
 [dependencies]
-anyhow = "1.0.71"
+anyhow = "1.0.72"
 archer-http = { path = "archer-http" }
 archer-proto = { path = "archer-proto" }
 archer-thrift = { path = "archer-thrift" }
@@ -25,24 +25,24 @@ bimap = "0.6.3"
 bytes = "1.4.0"
 futures-util = { version = "0.3.28", features = ["sink"] }
 hex = "0.4.3"
-itoa = "1.0.6"
+itoa = "1.0.9"
 mime = "0.3.17"
 once_cell = "1.18.0"
-phf = { version = "0.11.1", features = ["macros"] }
-postcard = { version = "1.0.4", default-features = false, features = ["use-std"] }
-quinn = { version = "0.10.1", default-features = false, features = ["runtime-tokio", "tls-rustls"] }
+phf = { version = "0.11.2", features = ["macros"] }
+postcard = { version = "1.0.6", default-features = false, features = ["use-std"] }
+quinn = { version = "0.10.2", default-features = false, features = ["runtime-tokio", "tls-rustls"] }
 rand = "0.8.5"
-rcgen = "0.10.0"
+rcgen = "0.11.1"
 rusqlite = { version = "0.29.0", features = ["array", "bundled", "time", "trace"] }
-rustls = "0.21.2"
-rustls-pemfile = "1.0.2"
-ryu = "1.0.13"
-serde = { version = "1.0.164", features = ["derive"] }
-serde_json = "1.0.97"
+rustls = "0.21.6"
+rustls-pemfile = "1.0.3"
+ryu = "1.0.15"
+serde = { version = "1.0.183", features = ["derive"] }
+serde_json = "1.0.104"
 snap = "1.1.0"
-thiserror = "1.0.40"
-time = { version = "0.3.22", features = ["serde"] }
-tokio = { version = "1.28.2", features = ["fs", "macros", "rt-multi-thread", "sync"] }
+thiserror = "1.0.44"
+time = { version = "0.3.25", features = ["serde"] }
+tokio = { version = "1.29.1", features = ["fs", "macros", "rt-multi-thread", "sync"] }
 tokio-shutdown = "0.1.4"
 tokio-util = { version = "0.7.8", features = ["codec", "net"] }
 tracing = "0.1.37"
@@ -55,8 +55,8 @@ serde_urlencoded = "0.7.1"
 
 [build-dependencies]
 mime_guess = "2.0.4"
-quote = { version = "1.0.28", default-features = false }
-regex = "1.8.4"
+quote = { version = "1.0.32", default-features = false }
+regex = "1.9.3"
 siphasher = "0.3.10"
 walkdir = "2.3.3"
 

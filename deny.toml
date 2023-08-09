@@ -20,12 +20,11 @@ license-files = [
 
 [bans]
 skip = [
-    { name = "base64", version = "=0.13.1" },
-    { name = "bitflags", version = "=1.3.2" },
-    { name = "hashbrown", version = "=0.12.3" },
-    { name = "hermit-abi", version = "=0.2.6" },
-    { name = "ordered-float", version = "=2.10.0" },
-    { name = "redox_syscall", version = "=0.2.16" },
-    { name = "socket2", version = "=0.4.9" },
-    { name = "syn", version = "=1.0.109" },
+    { name = "base64", version = "0.13" },
+    { name = "bitflags", version = "1" },
+    { name = "hashbrown", version = "0.12" },
+    { name = "ordered-float", version = "2" },
+    { name = "redox_syscall", version = "0.2" },
+    { name = "socket2", version = "0.4" },
+    { name = "syn", version = "1" },
 ]
