@@ -13,10 +13,10 @@ quinn = { version = "0.10.2", default-features = false, features = ["runtime-tok
 rand = "0.8.5"
 rustls = "0.21.6"
 rustls-pemfile = "1.0.3"
-serde = { version = "1.0.183", features = ["derive", "rc"] }
+serde = { version = "=1.0.171", features = ["derive", "rc"] }
 snap = "1.1.0"
 thiserror = "1.0.44"
-time = { version = "0.3.25", features = ["serde"] }
+time = { version = "0.3.26", features = ["serde"] }
 tokio = { version = "1.29.1", features = ["net", "sync", "time"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"

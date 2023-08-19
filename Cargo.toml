@@ -37,11 +37,11 @@ rusqlite = { version = "0.29.0", features = ["array", "bundled", "time", "trace"
 rustls = "0.21.6"
 rustls-pemfile = "1.0.3"
 ryu = "1.0.15"
-serde = { version = "1.0.183", features = ["derive"] }
+serde = { version = "=1.0.171", features = ["derive"] }
 serde_json = "1.0.104"
 snap = "1.1.0"
 thiserror = "1.0.44"
-time = { version = "0.3.25", features = ["serde"] }
+time = { version = "0.3.26", features = ["serde"] }
 tokio = { version = "1.29.1", features = ["fs", "macros", "rt-multi-thread", "sync"] }
 tokio-shutdown = "0.1.4"
 tokio-util = { version = "0.7.8", features = ["codec", "net"] }
