@@ -521,8 +521,7 @@ impl<'a> Visit for SpanAttributeVisitor<'a> {
     //     &mut self,
     //     field: &tracing::field::Field,
     //     value: &(dyn std::error::Error + 'static),
-    // ) {
-    //     self.record_debug(field, &tracing::field::DisplayValue(value))
+    // ) { self.record_debug(field, &tracing::field::DisplayValue(value))
     // }
 
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
