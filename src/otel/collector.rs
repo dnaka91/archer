@@ -79,6 +79,7 @@ async fn run_http(
     Ok(())
 }
 
+#[allow(clippy::unused_async)]
 async fn traces(
     State(db): State<Database>,
     Protobuf(request): Protobuf<ExportTraceServiceRequest>,
