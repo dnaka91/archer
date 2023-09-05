@@ -27,6 +27,7 @@ type PropsType = {
   icon?: string;
   placement?: TooltipPlacement;
   tooltipTitle: string;
+  buttonText: string;
 };
 
 type StateType = {
@@ -37,7 +38,7 @@ export default class CopyIcon extends React.PureComponent<PropsType, StateType> 
   static defaultProps: Partial<PropsType> = {
     className: undefined,
     icon: 'copy',
-    placement: 'left',
+    placement: 'top',
   };
 
   state = {
@@ -63,7 +64,7 @@ export default class CopyIcon extends React.PureComponent<PropsType, StateType> 
     return (
       <Tooltip
         arrowPointAtCenter
-        mouseLeaveDelay={0.1}
+        mouseLeaveDelay={0}
         onVisibleChange={this.handleTooltipVisibilityChange}
         placement={this.props.placement}
         title={this.state.hasCopied ? 'Copied' : this.props.tooltipTitle}
@@ -73,7 +74,9 @@ export default class CopyIcon extends React.PureComponent<PropsType, StateType> 
           htmlType="button"
           icon={this.props.icon}
           onClick={this.handleClick}
-        />
+        >
+          {this.props.buttonText}
+        </Button>
       </Tooltip>
     );
   }
