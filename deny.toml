@@ -27,5 +27,4 @@ skip = [
     { name = "redox_syscall", version = "0.2" },
     { name = "siphasher", version = "0.3" },
     { name = "socket2", version = "0.4" },
-    { name = "syn", version = "1" },
 ]
