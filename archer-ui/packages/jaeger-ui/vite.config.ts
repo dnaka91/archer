@@ -42,7 +42,11 @@ export default defineConfig({
     },
   },
   plugins: [
-    react(),
+    react({
+      babel: {
+        babelrc: true,
+      },
+    }),
     legacy({
       targets: ['>0.5%', 'not dead', 'not ie <= 11', 'not op_mini all'],
     }),
@@ -65,6 +69,7 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       less: {
+        math: 'always',
         javascriptEnabled: true,
         modifyVars: {
           // Supply appropriate overrides to the Ant Design System.
@@ -78,7 +83,7 @@ export default defineConfig({
           '@layout-body-background': '#fff',
           '@layout-header-background': '#404040',
           '@layout-footer-background': '@layout-body-background',
-          '@layout-header-height': '64px',
+          '@layout-header-height': '48px',
           '@layout-header-padding': '0 50px',
           '@layout-footer-padding': '24px 50px',
           '@layout-sider-background': '@layout-header-background',

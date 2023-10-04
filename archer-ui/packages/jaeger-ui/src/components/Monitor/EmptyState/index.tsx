@@ -31,7 +31,7 @@ export default class MonitorATMEmptyState extends React.PureComponent {
     return (
       <Col>
         <Row justify="center">
-          <Col span={6} offset={9} className="center-empty-state">
+          <Col span={6} className="center-empty-state">
             {this.config.mainTitle && <h2 className="main-title-empty-state">{this.config.mainTitle}</h2>}
             {this.config.subTitle && <h3 className="sub-title-empty-state">{this.config.subTitle}</h3>}
             {this.config.description && (
@@ -49,7 +49,7 @@ export default class MonitorATMEmptyState extends React.PureComponent {
             )}
             {this.config.alert && (
               <Row justify="center">
-                <Col span={20} offset={2}>
+                <Col span={20}>
                   <Alert message={this.config.alert.message} type={this.config.alert.type} showIcon />
                 </Col>
               </Row>
