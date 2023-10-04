@@ -13,15 +13,15 @@
 // limitations under the License.
 
 import * as React from 'react';
-import { Button, Input, Tooltip } from 'antd';
+import { CloseOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
+import { Button, Input, InputRef, Tooltip } from 'antd';
 import cx from 'classnames';
-import IoAndroidLocate from 'react-icons/lib/io/android-locate';
+import { IoLocate, IoHelp } from 'react-icons/io5';
 
 import * as markers from './TracePageSearchBar.markers';
 import { trackFilter } from '../index.track';
 import UiFindInput from '../../common/UiFindInput';
 import { TNil } from '../../../types';
-
 import './TracePageSearchBar.css';
 
 type TracePageSearchBarProps = {
@@ -34,7 +34,7 @@ type TracePageSearchBarProps = {
   navigable: boolean;
 };
 
-export function TracePageSearchBarFn(props: TracePageSearchBarProps & { forwardedRef: React.Ref<Input> }) {
+export function TracePageSearchBarFn(props: TracePageSearchBarProps & { forwardedRef: React.Ref<InputRef> }) {
   const {
     clearSearch,
     focusUiFindMatches,
@@ -80,59 +80,65 @@ export function TracePageSearchBarFn(props: TracePageSearchBarProps & { forwarde
 
   return (
     <div className="TracePageSearchBar">
-      <Tooltip
-        arrowPointAtCenter
-        mouseLeaveDelay={0.5}
-        placement="bottom"
-        overlayStyle={{ maxWidth: '600px' }} // This is a large tooltip and the default is too narrow.
-        title={renderTooltip()}
-      >
-        {/* style inline because compact overwrites the display */}
-        <Input.Group className="ub-justify-end" compact style={{ display: 'flex' }}>
-          <UiFindInput
-            inputProps={uiFindInputInputProps}
-            forwardedRef={forwardedRef}
-            trackFindFunction={trackFilter}
-          />
-          {navigable && (
-            <>
-              <Button
-                className={cx(btnClass, 'TracePageSearchBar--locateBtn')}
-                disabled={!textFilter}
-                htmlType="button"
-                onClick={focusUiFindMatches}
-              >
-                <IoAndroidLocate />
-              </Button>
-              <Button
-                className={btnClass}
-                disabled={!textFilter}
-                htmlType="button"
-                icon="up"
-                onClick={prevResult}
-              />
-              <Button
-                className={btnClass}
-                disabled={!textFilter}
-                htmlType="button"
-                icon="down"
-                onClick={nextResult}
-              />
-            </>
-          )}
-          <Button
-            className={btnClass}
-            disabled={!textFilter}
-            htmlType="button"
-            icon="close"
-            onClick={clearSearch}
-          />
-        </Input.Group>
-      </Tooltip>
+      {/* style inline because compact overwrites the display */}
+      <Input.Group className="ub-justify-end" compact style={{ display: 'flex' }}>
+        <UiFindInput
+          inputProps={uiFindInputInputProps}
+          forwardedRef={forwardedRef}
+          trackFindFunction={trackFilter}
+        />
+        <Tooltip
+          arrowPointAtCenter
+          placement="bottomLeft"
+          trigger="hover"
+          overlayStyle={{ maxWidth: '600px' }} // This is a large tooltip and the default is too narrow.
+          title={renderTooltip()}
+        >
+          <div className="help-btn-container">
+            <IoHelp className="help-button" />
+          </div>
+        </Tooltip>
+        {navigable && (
+          <>
+            <Button
+              className={cx(btnClass, 'TracePageSearchBar--locateBtn')}
+              disabled={!textFilter}
+              htmlType="button"
+              onClick={focusUiFindMatches}
+            >
+              <IoLocate />
+            </Button>
+            <Button
+              className={btnClass}
+              disabled={!textFilter}
+              htmlType="button"
+              icon={<UpOutlined />}
+              data-testid="UpOutlined"
+              onClick={prevResult}
+            />
+            <Button
+              className={btnClass}
+              disabled={!textFilter}
+              htmlType="button"
+              icon={<DownOutlined />}
+              data-testid="DownOutlined"
+              onClick={nextResult}
+            />
+          </>
+        )}
+        <Button
+          className={btnClass}
+          disabled={!textFilter}
+          htmlType="button"
+          icon={<CloseOutlined />}
+          data-testid="CloseOutlined"
+          onClick={clearSearch}
+        />
+      </Input.Group>
     </div>
   );
 }
 
-export default React.forwardRef((props: TracePageSearchBarProps, ref: React.Ref<Input>) => (
+export default React.forwardRef((props: TracePageSearchBarProps, ref: React.Ref<InputRef>) => (
   <TracePageSearchBarFn {...props} forwardedRef={ref} />
 ));
