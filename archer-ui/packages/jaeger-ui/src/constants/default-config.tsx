@@ -32,7 +32,7 @@ const defaultConfig: Config = {
       label: 'About Jaeger',
       items: [
         {
-          label: 'Website/Docs',
+          label: 'Website / Docs',
           url: 'https://dnaka91.github.io/archer',
         },
         {
