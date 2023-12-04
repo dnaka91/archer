@@ -23,8 +23,12 @@ skip = [
     { name = "bitflags", version = "1" },
     { name = "hashbrown", version = "0.12" },
     { name = "indexmap", version = "1" },
-    { name = "ordered-float", version = "2" },
-    { name = "redox_syscall", version = "0.2" },
+    { name = "ring", version = "0.16" },
     { name = "siphasher", version = "0.3" },
     { name = "socket2", version = "0.4" },
+    { name = "spin", version = "0.5" },
+    { name = "untrusted", version = "0.7" },
+]
+skip-tree = [
+    { name = "windows-sys", version = "0.48", depth = 3 },
 ]
