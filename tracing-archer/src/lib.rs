@@ -436,7 +436,7 @@ impl Builder {
 
         let layer = QuiverLayer {
             connection: handle.clone(),
-            clock: self.clock.unwrap_or_else(Clock::new),
+            clock: self.clock.unwrap_or_default(),
             resource: self.resource.unwrap_or_else(Resource::new),
             _inner: PhantomData,
         };

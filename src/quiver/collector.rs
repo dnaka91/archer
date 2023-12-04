@@ -28,7 +28,7 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
 
     loop {
         let conn = tokio::select! {
-            _ = shutdown.handle() => break,
+            () = shutdown.handle() => break,
             conn = endpoint.accept() => match conn {
                 Some(conn) => conn,
                 None => break,
@@ -135,7 +135,7 @@ async fn handle_connection(shutdown: Shutdown, conn: Connecting, database: Datab
 
     loop {
         let stream = tokio::select! {
-            _ = shutdown.handle() => {
+            () = shutdown.handle() => {
                 break;
             }
             stream = connection.accept_uni() => stream,
