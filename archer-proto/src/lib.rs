@@ -4,12 +4,6 @@ pub use prost;
 pub use prost_types;
 pub use tonic;
 
-pub mod jaeger {
-    pub mod api_v2 {
-        include!(concat!(env!("OUT_DIR"), "/jaeger/jaeger.api_v2.rs"));
-    }
-}
-
 pub mod opentelemetry {
     pub mod proto {
         pub mod collector {

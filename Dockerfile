@@ -38,9 +38,6 @@ RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path r
 
 COPY archer-http/ archer-http/
 COPY archer-proto/ archer-proto/
-COPY archer-thrift/ archer-thrift/
-COPY archer-thrift-derive/ archer-thrift-derive/
-COPY jaeger-idl/ jaeger-idl/
 COPY opentelemetry-proto/ opentelemetry-proto/
 COPY src/ src/
 COPY tracing-archer/ tracing-archer/
@@ -62,9 +59,7 @@ COPY --from=builder /volume/target/x86_64-unknown-linux-musl/release/archer /bin
 COPY --from=newuser /tmp/group /tmp/passwd /etc/
 COPY --from=newuser --chown=1000 /var/lib/archer /var/lib/
 
-# Jaeger Agent/Collector/Query ports
-EXPOSE 6831 6832
-EXPOSE 14250 14268
+# Jaeger Query ports
 EXPOSE 16686
 # OTLP Collector ports
 EXPOSE 4317 4318

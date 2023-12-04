@@ -46,14 +46,6 @@ async fn main() -> Result<()> {
         .init();
 
     tokio::try_join!(
-        flatten(tokio::spawn(jaeger::agent::run(
-            shutdown.clone(),
-            database.clone()
-        ))),
-        flatten(tokio::spawn(jaeger::collector::run(
-            shutdown.clone(),
-            database.clone()
-        ))),
         flatten(tokio::spawn(jaeger::query::run(
             shutdown.clone(),
             database_ro
