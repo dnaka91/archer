@@ -6,7 +6,7 @@ COPY archer-ui/ ./
 
 RUN yarn install && yarn run build
 
-FROM rust:1.73 as chef
+FROM rust:1.74 as chef
 
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 
