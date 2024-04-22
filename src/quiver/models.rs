@@ -3,6 +3,7 @@ use std::num::{NonZeroU128, NonZeroU64};
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 
+#[allow(clippy::struct_field_names)]
 #[derive(Debug, Deserialize)]
 pub struct Span {
     pub trace_id: NonZeroU128,

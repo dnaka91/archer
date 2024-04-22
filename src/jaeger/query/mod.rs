@@ -161,7 +161,7 @@ async fn traces(
                 return Err(ApiError {
                     code: StatusCode::NOT_FOUND,
                     msg: "trace id not found".into(),
-                    trace_id: ids.0.get(0).copied(),
+                    trace_id: ids.0.first().copied(),
                 });
             }
 

@@ -7,6 +7,7 @@ use anyhow::{ensure, Context};
 use serde::{Deserialize, Serialize};
 use time::{Duration, OffsetDateTime};
 
+#[allow(clippy::struct_field_names)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Span {
     pub trace_id: TraceId,
