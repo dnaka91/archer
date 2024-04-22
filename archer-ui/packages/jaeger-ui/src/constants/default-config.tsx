@@ -61,6 +61,9 @@ const defaultConfig: Config = {
     },
     maxLimit: 1500,
   },
+  storageCapabilities: {
+    archiveStorage: false,
+  },
   tracking: {
     gaID: null,
     trackErrors: true,

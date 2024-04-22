@@ -21,7 +21,7 @@ import { getConfigValue } from '../../../utils/config/get-config';
 export default class MonitorATMEmptyState extends React.PureComponent {
   config: MonitorEmptyStateConfig;
 
-  constructor(props: any) {
+  constructor(props: object) {
     super(props);
 
     this.config = getConfigValue('monitor.emptyState');

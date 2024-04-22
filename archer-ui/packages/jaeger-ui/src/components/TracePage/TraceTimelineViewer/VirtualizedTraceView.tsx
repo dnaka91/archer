@@ -163,6 +163,9 @@ function mergeChildrenCriticalPath(
   spanID: string,
   criticalPath: criticalPathSection[]
 ): criticalPathSection[] {
+  if (!criticalPath) {
+    return [];
+  }
   // Define an array to store the IDs of the span and its descendants (if the span is collapsed)
   const allRequiredSpanIds = [spanID];
 
@@ -364,14 +367,14 @@ export class VirtualizedTraceViewImpl extends React.Component<VirtualizedTraceVi
     return getLinks(span, items, itemIndex, trace);
   };
 
-  renderRow = (key: string, style: React.CSSProperties, index: number, attrs: {}) => {
+  renderRow = (key: string, style: React.CSSProperties, index: number, attrs: object) => {
     const { isDetail, span, spanIndex } = this.getRowStates()[index];
     return isDetail
       ? this.renderSpanDetailRow(span, key, style, attrs)
       : this.renderSpanBarRow(span, spanIndex, key, style, attrs);
   };
 
-  renderSpanBarRow(span: Span, spanIndex: number, key: string, style: React.CSSProperties, attrs: {}) {
+  renderSpanBarRow(span: Span, spanIndex: number, key: string, style: React.CSSProperties, attrs: object) {
     const { spanID } = span;
     const { serviceName } = span.process;
     const {
@@ -447,7 +450,7 @@ export class VirtualizedTraceViewImpl extends React.Component<VirtualizedTraceVi
     );
   }
 
-  renderSpanDetailRow(span: Span, key: string, style: React.CSSProperties, attrs: {}) {
+  renderSpanDetailRow(span: Span, key: string, style: React.CSSProperties, attrs: object) {
     const { spanID } = span;
     const { serviceName } = span.process;
     const {
