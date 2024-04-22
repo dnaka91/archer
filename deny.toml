@@ -1,6 +1,14 @@
+[advisories]
+version = 2
+
 [licenses]
-allow = []
-allow-osi-fsf-free = "both"
+version = 2
+allow = [
+	"Apache-2.0",
+	"BSD-3-Clause",
+	"ISC",
+	"MIT",
+]
 exceptions = [
     { allow = ["MPL-2.0"], name = "option-ext" },
     { allow = ["OpenSSL"], name = "ring" },
@@ -20,12 +28,12 @@ license-files = [
 
 [bans]
 skip = [
+    { name = "base64", version = "0.21" },
     { name = "bitflags", version = "1" },
     { name = "hashbrown", version = "0.12" },
     { name = "indexmap", version = "1" },
     { name = "ring", version = "0.16" },
     { name = "siphasher", version = "0.3" },
-    { name = "socket2", version = "0.4" },
     { name = "spin", version = "0.5" },
     { name = "untrusted", version = "0.7" },
 ]
