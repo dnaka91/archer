@@ -17,6 +17,7 @@ import { Tabs } from 'antd';
 import PropTypes from 'prop-types';
 import { bindActionCreators } from 'redux';
 import { connect } from 'react-redux';
+import memoizeOne from 'memoize-one';
 
 import DAG from './DAG';
 import DependencyForceGraph from './DependencyForceGraph';
@@ -25,7 +26,6 @@ import LoadingIndicator from '../common/LoadingIndicator';
 import * as jaegerApiActions from '../../actions/jaeger-api';
 import { FALLBACK_DAG_MAX_NUM_SERVICES } from '../../constants';
 import { nodesPropTypes, linksPropTypes } from '../../propTypes/dependencies';
-import { formatDependenciesAsNodesAndLinks } from '../../selectors/dependencies';
 import { getConfigValue } from '../../utils/config/get-config';
 
 import './index.css';
@@ -82,7 +82,19 @@ export class DependencyGraphPageImpl extends Component {
     }
 
     if (!nodes || !links) {
-      return <div className="u-simple-card ub-m3">No service dependencies found.</div>;
+      return (
+        <div className="u-simple-card ub-m3">
+          No service dependencies found.{' '}
+          <a
+            href="https://www.jaegertracing.io/docs/latest/faq/#why-is-the-dependencies-page-empty"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            See FAQ
+          </a>
+          .
+        </div>
+      );
     }
 
     const GRAPH_TYPE_OPTIONS = [GRAPH_TYPES.FORCE_DIRECTED];
@@ -116,13 +128,56 @@ export class DependencyGraphPageImpl extends Component {
   }
 }
 
+const formatDependenciesAsNodesAndLinks = memoizeOne(dependencies => {
+  const data = dependencies.reduce(
+    (response, link) => {
+      const { nodeMap } = response;
+      let { links } = response;
+
+      // add both the parent and child to the node map, or increment their
+      // call count.
+      nodeMap[link.parent] = nodeMap[link.parent] ? nodeMap[link.parent] + link.callCount : link.callCount;
+      nodeMap[link.child] = nodeMap[link.child]
+        ? response.nodeMap[link.child] + link.callCount
+        : link.callCount;
+
+      // filter out self-dependent
+      if (link.parent !== link.child) {
+        links = links.concat([
+          {
+            source: link.parent,
+            target: link.child,
+            callCount: link.callCount,
+            value: Math.max(Math.sqrt(link.callCount / 10000), 1),
+            target_node_size: Math.max(Math.log(nodeMap[link.child] / 1000), 3),
+          },
+        ]);
+      }
+
+      return { nodeMap, links };
+    },
+    { nodeMap: {}, links: [] }
+  );
+
+  data.nodes = Object.keys(data.nodeMap).map(id => ({
+    callCount: data.nodeMap[id],
+    radius: Math.max(Math.log(data.nodeMap[id] / 1000), 3),
+    orphan: data.links.findIndex(link => id === link.source || id === link.target) === -1,
+    id,
+  }));
+
+  const { nodes, links } = data;
+
+  return { nodes, links };
+});
+
 // export for tests
 export function mapStateToProps(state) {
   const { dependencies, error, loading } = state.dependencies;
   let links;
   let nodes;
   if (dependencies && dependencies.length > 0) {
-    const formatted = formatDependenciesAsNodesAndLinks({ dependencies });
+    const formatted = formatDependenciesAsNodesAndLinks(dependencies);
     links = formatted.links;
     nodes = formatted.nodes;
   }
