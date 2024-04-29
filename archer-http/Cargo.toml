@@ -7,12 +7,12 @@ license.workspace = true
 publish = false
 
 [dependencies]
-anyhow = "1.0.82"
+anyhow.workspace = true
 axum = { version = "0.7.5", features = ["http2"] }
 axum-extra = { version = "0.9.3", features = ["typed-header"] }
 num-traits = { version = "0.2.18", features = ["i128"] }
 ordered-float = "4.2.0"
-serde = { version = "1.0.199", features = ["derive"] }
-thiserror = "1.0.59"
+serde.workspace = true
+thiserror.workspace = true
 tower = "0.4.13"
 tower-http = { version = "0.5.2", features = ["compression-gzip", "decompression-gzip", "trace", "util"] }
