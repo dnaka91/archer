@@ -9,7 +9,7 @@ publish = false
 [dependencies]
 prost = "0.12.4"
 prost-types = "0.12.4"
-tonic = { version = "0.10.2", features = ["gzip"] }
+tonic = { version = "0.11.0", features = ["gzip"] }
 
 [build-dependencies]
-tonic-build = "0.10.2"
+tonic-build = "0.11.0"

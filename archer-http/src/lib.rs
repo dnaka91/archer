@@ -17,6 +17,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+pub use axum_extra;
 use ordered_float::OrderedFloat;
 pub use tower;
 pub use tower_http;

@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use quinn::{Connecting, ConnectionError, Endpoint, RecvStream, ServerConfig, VarInt};
-use rustls::{Certificate, PrivateKey};
+use rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
 use tokio::fs;
 use tokio_shutdown::Shutdown;
 use tracing::{debug, error, info, instrument};
@@ -40,6 +40,7 @@ pub async fn run(shutdown: Shutdown, database: Database) -> Result<()> {
             "incoming connection"
         );
 
+        let conn = conn.accept()?;
         let shutdown = shutdown.clone();
         let database = database.clone();
 
@@ -81,13 +82,13 @@ async fn load_config() -> Result<(ServerConfig, String)> {
             .context("empty data")??;
         let key = rustls_pemfile::read_one(&mut Cursor::new(key_raw))?
             .map(|item| match item {
-                rustls_pemfile::Item::PKCS8Key(key) => Ok(key),
+                rustls_pemfile::Item::Pkcs8Key(key) => Ok(key),
                 _ => bail!("not a key"),
             })
             .context("empty data")??;
         let cert_pem = String::from_utf8(cert_raw)?;
 
-        (Certificate(cert), PrivateKey(key), cert_pem)
+        (cert, key, cert_pem)
     } else {
         let (cert, cert_pem, key, key_pem) = generate_certificate()?;
         fs::create_dir_all(&data_dir).await?;
@@ -97,7 +98,7 @@ async fn load_config() -> Result<(ServerConfig, String)> {
         (cert, key, cert_pem)
     };
 
-    let mut config = ServerConfig::with_single_cert(vec![cert], key)?;
+    let mut config = ServerConfig::with_single_cert(vec![cert], key.into())?;
     Arc::get_mut(&mut config.transport)
         .context("failed getting mutable reference to server transport")?
         .max_concurrent_bidi_streams(0_u8.into())
@@ -116,14 +117,19 @@ async fn load_file(path: impl AsRef<Path>) -> Result<Option<Vec<u8>>> {
     }
 }
 
-fn generate_certificate() -> Result<(Certificate, String, PrivateKey, String)> {
+fn generate_certificate() -> Result<(
+    CertificateDer<'static>,
+    String,
+    PrivatePkcs8KeyDer<'static>,
+    String,
+)> {
     let cert = rcgen::generate_simple_self_signed(["localhost".to_owned(), "archer".to_owned()])?;
 
     Ok((
-        Certificate(cert.serialize_der()?),
-        cert.serialize_pem()?,
-        PrivateKey(cert.serialize_private_key_der()),
-        cert.serialize_private_key_pem(),
+        cert.cert.der().to_owned(),
+        cert.cert.pem(),
+        cert.key_pair.serialize_der().into(),
+        cert.key_pair.serialize_pem(),
     ))
 }
 

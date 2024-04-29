@@ -3,13 +3,13 @@ use std::net::SocketAddr;
 use anyhow::Result;
 use archer_http::{
     axum::{
-        async_trait,
-        body::{Bytes, HttpBody},
-        extract::{rejection::BytesRejection, FromRequest, State},
-        http::{header::CONTENT_TYPE, HeaderValue, Request, StatusCode},
+        self, async_trait,
+        body::Bytes,
+        extract::{rejection::BytesRejection, FromRequest, Request, State},
+        http::{header::CONTENT_TYPE, HeaderValue, StatusCode},
         response::{IntoResponse, Response},
         routing::post,
-        BoxError, Router, Server,
+        Router,
     },
     tower::ServiceBuilder,
     tower_http::ServiceBuilderExt,
@@ -27,6 +27,7 @@ use archer_proto::{
 };
 use bytes::BytesMut;
 use mime::Mime;
+use tokio::net::TcpListener;
 use tokio_shutdown::Shutdown;
 use tracing::{error, info, instrument, warn};
 
@@ -69,8 +70,7 @@ async fn run_http(
         .layer(ServiceBuilder::new().compression().trace_for_http())
         .with_state(database);
 
-    Server::bind(&addr)
-        .serve(app.into_make_service())
+    axum::serve(TcpListener::bind(&addr).await?, app)
         .with_graceful_shutdown(shutdown.handle())
         .await?;
 
@@ -101,17 +101,14 @@ async fn traces(
 struct Protobuf<T>(pub T);
 
 #[async_trait]
-impl<T, S, B> FromRequest<S, B> for Protobuf<T>
+impl<T, S> FromRequest<S> for Protobuf<T>
 where
     T: Default + Message,
-    B: HttpBody + Send + 'static,
-    B::Data: Send,
-    B::Error: Into<BoxError>,
     S: Send + Sync,
 {
     type Rejection = ProtobufRejection;
 
-    async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
         if !protobuf_content_type(&req) {
             return Err(ProtobufRejection::MissingContentType);
         }
@@ -193,7 +190,14 @@ async fn run_grpc(
     info!("listening on http://{addr}");
 
     tonic::transport::Server::builder()
-        .layer(ServiceBuilder::new().trace_for_grpc())
+        .trace_fn(|request| {
+            tracing::debug_span!(
+                "request",
+                method = %request.method(),
+                uri = %request.uri(),
+                version = ?request.version(),
+            )
+        })
         .add_service(
             TraceServiceServer::new(TraceService(database))
                 .accept_compressed(CompressionEncoding::Gzip)

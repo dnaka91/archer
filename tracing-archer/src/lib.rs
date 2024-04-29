@@ -422,6 +422,10 @@ impl Builder {
     }
 
     pub async fn build<S>(self) -> Result<(QuiverLayer<S>, Handle), BuildLayerError> {
+        rustls::crypto::ring::default_provider()
+            .install_default()
+            .ok();
+
         let cert_pem = self.cert.ok_or(BuildLayerError::MissingCertificate)?;
         let addr = match self.addr {
             Some(addr) => Box::into_pin(addr)

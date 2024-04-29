@@ -10,7 +10,7 @@ use std::{
 };
 
 use quinn::{ClientConfig, Endpoint, TransportConfig, VarInt};
-use rustls::{Certificate, RootCertStore};
+use rustls::RootCertStore;
 use tokio::{
     sync::{mpsc, oneshot},
     task::JoinHandle,
@@ -236,17 +236,19 @@ pub enum ConnectError {
     Webpki(#[from] webpki::Error),
     #[error("failed adding certificate to rustls")]
     Rustls(#[from] rustls::Error),
+    #[error("failed creating client configuration for rustls")]
+    RustlsClient(#[from] rustls::client::VerifierBuilderError),
 }
 
 pub fn create_endpoint(cert_pem: &[u8]) -> Result<Endpoint, ConnectError> {
     let mut cert_pem = Cursor::new(cert_pem);
     let mut certs = RootCertStore::empty();
 
-    for cert in rustls_pemfile::certs(&mut cert_pem)? {
-        certs.add(&Certificate(cert))?;
+    for cert in rustls_pemfile::certs(&mut cert_pem) {
+        certs.add(cert?)?;
     }
 
-    let mut config = ClientConfig::with_root_certificates(certs);
+    let mut config = ClientConfig::with_root_certificates(Arc::new(certs))?;
     config.transport_config(Arc::new({
         let mut cfg = TransportConfig::default();
         cfg.max_concurrent_bidi_streams(0_u8.into())

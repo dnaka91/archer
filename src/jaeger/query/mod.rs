@@ -5,22 +5,24 @@ use std::{collections::HashMap, net::SocketAddr};
 use anyhow::{ensure, Result};
 use archer_http::{
     axum::{
+        self,
         extract::{rejection::QueryRejection, Path, Query, State},
-        headers::IfNoneMatch,
         http::{
             header::{CACHE_CONTROL, CONTENT_TYPE, ETAG, LAST_MODIFIED},
             HeaderMap, HeaderValue, StatusCode, Uri,
         },
         response::IntoResponse,
         routing::get,
-        Router, Server, TypedHeader,
+        Router,
     },
+    axum_extra::{headers::IfNoneMatch, TypedHeader},
     tower::ServiceBuilder,
     tower_http::ServiceBuilderExt,
     ApiError, ApiResponse, TraceId,
 };
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
+use tokio::net::TcpListener;
 use tokio_shutdown::Shutdown;
 use tracing::{error, info, instrument};
 
@@ -52,8 +54,7 @@ pub async fn run(shutdown: Shutdown, database: ReadOnlyDatabase) -> Result<()> {
     let addr = SocketAddr::from(net::JAEGER_QUERY_HTTP);
     info!("listening on http://{addr}");
 
-    Server::bind(&addr)
-        .serve(app.into_make_service())
+    axum::serve(TcpListener::bind(&addr).await?, app)
         .with_graceful_shutdown(shutdown.handle())
         .await?;
 
