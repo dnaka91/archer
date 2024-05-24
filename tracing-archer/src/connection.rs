@@ -32,6 +32,8 @@ pub enum Error {
     Compress(#[from] snap::Error),
     #[error("failed to send data over stream")]
     Write(#[from] quinn::WriteError),
+    #[error("failed to close stream")]
+    CloseStream(#[from] quinn::ClosedStream),
 }
 
 struct Connection {
@@ -119,7 +121,7 @@ impl Connection {
                             let sent = async {
                                 let mut send = conn.open_uni().await?;
                                 send.write_all(&data).await?;
-                                send.finish().await?;
+                                send.finish()?;
                                 Ok::<_, Error>(())
                             }
                             .await;

@@ -8,7 +8,6 @@ allow = [
 	"BSD-3-Clause",
 	"ISC",
 	"MIT",
-	"OpenSSL",
 ]
 exceptions = [
     { allow = ["MPL-2.0"], name = "option-ext" },
@@ -39,6 +38,3 @@ skip-tree = [
     { name = "axum", version = "0.6", depth = 3 },
     { name = "windows-sys", version = "0.48", depth = 3 },
 ]
-
-[sources]
-allow-git = ["https://github.com/quinn-rs/quinn.git"]
