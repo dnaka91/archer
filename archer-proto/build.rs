@@ -7,7 +7,7 @@ fn main() -> Result<()> {
     tonic_build::configure()
         .build_client(false)
         .out_dir(out_dir.join("opentelemetry"))
-        .compile(
+        .compile_protos(
             &["../opentelemetry-proto/opentelemetry/proto/collector/trace/v1/trace_service.proto"],
             &["../opentelemetry-proto"],
         )
