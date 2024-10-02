@@ -27,11 +27,6 @@ FROM chef as builder
 
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    libprotobuf-dev \
-    protobuf-compiler
-
 COPY --from=planner /volume/recipe.json recipe.json
 
 RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json

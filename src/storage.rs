@@ -295,6 +295,7 @@ impl TraceInfo {
 #[derive(Debug)]
 pub struct ListSpansParams {
     pub service: String,
+    #[allow(dead_code)]
     pub operation: Option<String>,
     pub start: OffsetDateTime,
     pub end: OffsetDateTime,

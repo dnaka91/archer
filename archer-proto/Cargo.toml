@@ -12,4 +12,6 @@ prost-types = "0.13.3"
 tonic = { version = "0.12.3", features = ["gzip"] }
 
 [build-dependencies]
+miette = { version = "7.2.0", default-features = false }
+protox = "0.7.1"
 tonic-build = "0.12.3"
