@@ -1,13 +1,9 @@
-[advisories]
-version = 2
-
 [licenses]
-version = 2
 allow = [
-	"Apache-2.0",
-	"BSD-3-Clause",
-	"ISC",
-	"MIT",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "ISC",
+    "MIT",
 ]
 exceptions = [
     { allow = ["MPL-2.0"], name = "option-ext" },
@@ -28,13 +24,15 @@ license-files = [
 
 [bans]
 skip = [
-    { name = "base64", version = "0.21" },
-    { name = "bitflags", version = "1" },
-    { name = "hashbrown", version = "0.12" },
-    { name = "indexmap", version = "1" },
-    { name = "siphasher", version = "0.3" },
+    "base64@0.21",
+    "hashbrown@0.12",
+    "hashbrown@0.14",
+    "indexmap@1",
+    "siphasher@0.3",
+    "sync_wrapper@0.1",
+    "tower@0.4",
 ]
 skip-tree = [
-    { name = "axum", version = "0.6", depth = 3 },
-    { name = "windows-sys", version = "0.48", depth = 3 },
+    { crate = "windows-sys@0.48", depth = 3 },
+    { crate = "windows-sys@0.52", depth = 3 },
 ]

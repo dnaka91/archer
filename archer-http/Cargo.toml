@@ -11,7 +11,7 @@ anyhow.workspace = true
 axum = { version = "0.7.7", features = ["http2"] }
 axum-extra = { version = "0.9.4", features = ["typed-header"] }
 num-traits = { version = "0.2.19", features = ["i128"] }
-ordered-float = "4.3.0"
+ordered-float = "4.4.0"
 serde.workspace = true
 thiserror.workspace = true
 tower = "0.4.13"

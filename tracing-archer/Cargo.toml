@@ -23,5 +23,5 @@ tracing-subscriber.workspace = true
 webpki = { version = "0.22.4", features = ["std"] }
 
 [dev-dependencies]
-anyhow = "1.0.89"
+anyhow = "1.0.91"
 tokio = { workspace = true, features = ["fs", "macros", "rt-multi-thread", "time"] }
